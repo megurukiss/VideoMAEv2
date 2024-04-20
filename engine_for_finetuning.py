@@ -18,11 +18,11 @@ from timm.data import Mixup
 from timm.utils import ModelEma, accuracy
 
 import utils
-from eventutils import ground_truth_decoder
+from eventutils import ground_truth_decoder,multi_label_accuracy,custom_multi_label_pred
 
 def train_class_batch(model, samples, target, criterion):
     outputs = model(samples)
-    target = ground_truth_decoder(target)
+    # target = ground_truth_decoder(target)
     loss = criterion(outputs, target)
     return loss, outputs
 
@@ -82,14 +82,18 @@ def train_one_epoch(model: torch.nn.Module,
 
         samples = samples.to(device, non_blocking=True)
         targets = targets.to(device, non_blocking=True)
-
-        if mixup_fn is not None:
-            # mixup handle 3th & 4th dimension
-            B, C, T, H, W = samples.shape
-            samples = samples.view(B, C * T, H, W)
-            samples, targets = mixup_fn(samples, targets)
-            samples = samples.view(B, C, T, H, W)
-
+        
+        # decode ground truth to multilabel [[0.5,0.5],[1,0]] format
+        targets=ground_truth_decoder(targets)
+        
+        # if mixup_fn is not None:
+        #     # mixup handle 3th & 4th dimension
+        #     B, C, T, H, W = samples.shape
+        #     samples = samples.view(B, C * T, H, W)
+        #     samples, targets = mixup_fn(samples, targets)
+        #     samples = samples.view(B, C, T, H, W)
+        
+        criterion= torch.nn.BCEWithLogitsLoss()
         if loss_scaler is None:
             samples = samples.half()
             loss, output = train_class_batch(model, samples, targets,
@@ -136,11 +140,12 @@ def train_one_epoch(model: torch.nn.Module,
             loss_scale_value = loss_scaler.state_dict()["scale"]
 
         torch.cuda.synchronize()
-
-        if mixup_fn is None:
-            class_acc = (output.max(-1)[-1] == targets).float().mean()
-        else:
-            class_acc = None
+        
+        class_acc = multi_label_accuracy(output, targets)
+        # if mixup_fn is None:
+        #     class_acc = (output.max(-1)[-1] == targets).float().mean()
+        # else:
+        #     class_acc = None
         metric_logger.update(loss=loss_value)
         metric_logger.update(class_acc=class_acc)
         metric_logger.update(loss_scale=loss_scale_value)
@@ -178,7 +183,7 @@ def train_one_epoch(model: torch.nn.Module,
 
 @torch.no_grad()
 def validation_one_epoch(data_loader, model, device):
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.BCEWithLogitsLoss()
 
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Val:'
@@ -191,25 +196,30 @@ def validation_one_epoch(data_loader, model, device):
         target = batch[1]
         images = images.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
+        
+        target=ground_truth_decoder(target)
 
         # compute output
         with torch.cuda.amp.autocast():
             output = model(images)
             loss = criterion(output, target)
 
-        acc1, acc5 = accuracy(output, target, topk=(1, 5))
-
+        class_acc = multi_label_accuracy(output, target)
         batch_size = images.shape[0]
         metric_logger.update(loss=loss.item())
-        metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
-        metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
+        metric_logger.meters['acc1'].update(class_acc.item(), n=batch_size)
+        # acc1, acc5 = accuracy(output, target, topk=(1, 5))
+
+        # batch_size = images.shape[0]
+        # metric_logger.update(loss=loss.item())
+        # metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
+        # metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print(
-        '* Acc@1 {top1.global_avg:.3f} Acc@5 {top5.global_avg:.3f} loss {losses.global_avg:.3f}'
+        '* Acc@1 {top1.global_avg:.3f} loss {losses.global_avg:.3f}'
         .format(
             top1=metric_logger.acc1,
-            top5=metric_logger.acc5,
             losses=metric_logger.loss))
 
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
@@ -217,7 +227,7 @@ def validation_one_epoch(data_loader, model, device):
 
 @torch.no_grad()
 def final_test(data_loader, model, device, file):
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.BCEWithLogitsLoss()
 
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Test:'
@@ -234,6 +244,8 @@ def final_test(data_loader, model, device, file):
         split_nb = batch[4]
         images = images.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
+        
+        target=ground_truth_decoder(target)
 
         # compute output
         with torch.cuda.amp.autocast():
@@ -248,26 +260,30 @@ def final_test(data_loader, model, device, file):
                 str(int(split_nb[i].cpu().numpy())))
             final_result.append(string)
 
-        acc1, acc5 = accuracy(output, target, topk=(1, 5))
-
+        
+        class_acc = multi_label_accuracy(output, target)
         batch_size = images.shape[0]
         metric_logger.update(loss=loss.item())
-        metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
-        metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
+        metric_logger.meters['acc1'].update(class_acc.item(), n=batch_size)
+        # acc1, acc5 = accuracy(output, target, topk=(1, 5))
+
+        # batch_size = images.shape[0]
+        # metric_logger.update(loss=loss.item())
+        # metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
+        # metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
 
     if not os.path.exists(file):
         os.mknod(file)
     with open(file, 'w') as f:
-        f.write("{}, {}\n".format(acc1, acc5))
+        f.write("{}\n".format(class_acc))
         for line in final_result:
             f.write(line)
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print(
-        '* Acc@1 {top1.global_avg:.3f} Acc@5 {top5.global_avg:.3f} loss {losses.global_avg:.3f}'
+        '* Acc@1 {top1.global_avg:.3f} loss {losses.global_avg:.3f}'
         .format(
             top1=metric_logger.acc1,
-            top5=metric_logger.acc5,
             losses=metric_logger.loss))
 
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
@@ -297,10 +313,11 @@ def merge(eval_path, num_tasks, method='prob'):
                 dict_pos[name] = []
             if chunk_nb + split_nb in dict_pos[name]:
                 continue
-            if method == 'prob':
-                dict_feats[name].append(softmax(data))
-            else:
-                dict_feats[name].append(data)
+            dict_feats[name].append(data)
+            # if method == 'prob':
+            #     dict_feats[name].append(softmax(data))
+            # else:
+            #     dict_feats[name].append(data)
             dict_pos[name].append(chunk_nb + split_nb)
             dict_label[name] = label
     print("Computing final results")
@@ -312,18 +329,18 @@ def merge(eval_path, num_tasks, method='prob'):
     # [pred, top1, top5, label]
     ans = p.map(compute_video, input_lst)
     top1 = [x[1] for x in ans]
-    top5 = [x[2] for x in ans]
-    label = [x[3] for x in ans]
-    final_top1, final_top5 = np.mean(top1), np.mean(top5)
+    label = [x[2] for x in ans]
+    final_top1= np.mean(top1)
 
-    return final_top1 * 100, final_top5 * 100
-
+    return final_top1 * 100
 
 def compute_video(lst):
     i, video_id, data, label = lst
     feat = [x for x in data]
-    feat = np.mean(feat, axis=0)
-    pred = np.argmax(feat)
-    top1 = (int(pred) == int(label)) * 1.0
-    top5 = (int(label) in np.argsort(-feat)[:5]) * 1.0
-    return [pred, top1, top5, int(label)]
+    # feat = np.mean(feat, axis=0)
+    # pred = np.argmax(feat)
+    pred=custom_multi_label_pred(torch.tensor(feat))
+    top1=multi_label_accuracy(torch.tensor(feat),torch.tensor(label))
+    # top1 = (int(pred) == int(label)) * 1.0
+    # top5 = (int(label) in np.argsort(-feat)[:5]) * 1.0
+    return [pred, top1, int(label)]

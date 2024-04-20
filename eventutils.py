@@ -10,7 +10,7 @@ def ground_truth_decoder(labels,num_classes=len(label_map)):
         parts = label.split('&')
         for part in parts:
             decoded[i, label_map[part]] += 1
-    return decoded/2
+    return decoded/(len(parts))
 
 def custom_multi_label_pred(outputs,threshold=0.7):
     """
@@ -38,7 +38,7 @@ def custom_multi_label_pred(outputs,threshold=0.7):
     
     return preds
 
-def multi_label_accuracy(outputs, targets):
+def multi_label_accuracy(outputs, targets, threshold=0.7):
     """
     Calculate accuracy for multi-label classification.
     Args:
@@ -51,7 +51,7 @@ def multi_label_accuracy(outputs, targets):
     - sample_accuracy (float): percentage of completely correct samples.
     """
     
-    preds=custom_multi_label_pred(outputs)
+    preds=custom_multi_label_pred(outputs,threshold)
     correct = (preds == targets).float()
     # add values for correct places
     vals=targets[correct==1]
