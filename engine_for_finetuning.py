@@ -18,10 +18,11 @@ from timm.data import Mixup
 from timm.utils import ModelEma, accuracy
 
 import utils
-
+from eventutils import ground_truth_decoder
 
 def train_class_batch(model, samples, target, criterion):
     outputs = model(samples)
+    target = ground_truth_decoder(target)
     loss = criterion(outputs, target)
     return loss, outputs
 

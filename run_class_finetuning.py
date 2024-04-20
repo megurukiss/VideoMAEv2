@@ -768,13 +768,14 @@ def main(args, ds_init):
     print("Max WD = %.7f, Min WD = %.7f" %
           (max(wd_schedule_values), min(wd_schedule_values)))
 
-    if mixup_fn is not None:
-        # smoothing is handled with mixup label transform
-        criterion = SoftTargetCrossEntropy()
-    elif args.smoothing > 0.:
-        criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
-    else:
-        criterion = torch.nn.CrossEntropyLoss()
+    # if mixup_fn is not None:
+    #     # smoothing is handled with mixup label transform
+    #     criterion = SoftTargetCrossEntropy()
+    # elif args.smoothing > 0.:
+    #     criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
+    # else:
+    #     criterion = torch.nn.CrossEntropyLoss()
+    criterion=torch.nn.BCEWithLogitsLoss()
 
     print("criterion = %s" % str(criterion))
 
