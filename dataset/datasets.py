@@ -59,7 +59,7 @@ class VideoClsDataset(Dataset):
 
         self.video_loader = get_video_loader()
 
-        cleaned = pd.read_csv(self.anno_path, header=None, delimiter=' ')
+        cleaned = pd.read_csv(self.anno_path, header=None, delimiter=',')
         self.dataset_samples = list(
             cleaned[0].apply(lambda row: os.path.join(self.data_root, row)))
         self.label_array = list(cleaned.values[:, 1])

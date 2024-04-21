@@ -318,7 +318,7 @@ def get_args():
         default='Kinetics-400',
         choices=[
             'Kinetics-400', 'Kinetics-600', 'Kinetics-700', 'SSV2', 'UCF101',
-            'HMDB51', 'Diving48', 'Kinetics-710', 'MIT'
+            'HMDB51', 'Diving48', 'Kinetics-710', 'MIT','rats'
         ],
         type=str,
         help='dataset')
@@ -498,19 +498,19 @@ def main(args, ds_init):
     else:
         data_loader_test = None
 
-    mixup_fn = None
-    mixup_active = args.mixup > 0 or args.cutmix > 0. or args.cutmix_minmax is not None
-    if mixup_active:
-        print("Mixup is activated!")
-        mixup_fn = Mixup(
-            mixup_alpha=args.mixup,
-            cutmix_alpha=args.cutmix,
-            cutmix_minmax=args.cutmix_minmax,
-            prob=args.mixup_prob,
-            switch_prob=args.mixup_switch_prob,
-            mode=args.mixup_mode,
-            label_smoothing=args.smoothing,
-            num_classes=args.nb_classes)
+    # mixup_fn = None
+    # mixup_active = args.mixup > 0 or args.cutmix > 0. or args.cutmix_minmax is not None
+    # if mixup_active:
+    #     print("Mixup is activated!")
+    #     mixup_fn = Mixup(
+    #         mixup_alpha=args.mixup,
+    #         cutmix_alpha=args.cutmix,
+    #         cutmix_minmax=args.cutmix_minmax,
+    #         prob=args.mixup_prob,
+    #         switch_prob=args.mixup_switch_prob,
+    #         mode=args.mixup_mode,
+    #         label_smoothing=args.smoothing,
+    #         num_classes=args.nb_classes)
 
     model = create_model(
         args.model,
@@ -779,6 +779,8 @@ def main(args, ds_init):
 
     print("criterion = %s" % str(criterion))
 
+    
+    # to be check
     utils.auto_load_model(
         args=args,
         model=model,
@@ -789,7 +791,7 @@ def main(args, ds_init):
     if args.validation:
         test_stats = validation_one_epoch(data_loader_val, model, device)
         print(
-            f"{len(dataset_val)} val images: Top-1 {test_stats['acc1']:.2f}%, Top-5 {test_stats['acc5']:.2f}%, loss {test_stats['loss']:.4f}"
+            f"{len(dataset_val)} val images: Top-1 {test_stats['acc1']:.2f}%, loss {test_stats['loss']:.4f}"
         )
         exit(0)
 
@@ -799,11 +801,11 @@ def main(args, ds_init):
         torch.distributed.barrier()
         if global_rank == 0:
             print("Start merging results...")
-            final_top1, final_top5 = merge(args.output_dir, num_tasks)
+            final_top1= merge(args.output_dir, num_tasks)
             print(
-                f"Accuracy of the network on the {len(dataset_test)} test videos: Top-1: {final_top1:.2f}%, Top-5: {final_top5:.2f}%"
+                f"Accuracy of the network on the {len(dataset_test)} test videos: Top-1: {final_top1:.2f}%"
             )
-            log_stats = {'Final top-1': final_top1, 'Final Top-5': final_top5}
+            log_stats = {'Final top-1': final_top1}
             if args.output_dir and utils.is_main_process():
                 with open(
                         os.path.join(args.output_dir, "log.txt"),
@@ -831,7 +833,6 @@ def main(args, ds_init):
             loss_scaler,
             args.clip_grad,
             model_ema,
-            mixup_fn,
             log_writer=log_writer,
             start_steps=epoch * num_training_steps_per_epoch,
             lr_schedule_values=lr_schedule_values,
@@ -871,8 +872,8 @@ def main(args, ds_init):
             if log_writer is not None:
                 log_writer.update(
                     val_acc1=test_stats['acc1'], head="perf", step=epoch)
-                log_writer.update(
-                    val_acc5=test_stats['acc5'], head="perf", step=epoch)
+                # log_writer.update(
+                #     val_acc5=test_stats['acc5'], head="perf", step=epoch)
                 log_writer.update(
                     val_loss=test_stats['loss'], head="perf", step=epoch)
 
@@ -904,11 +905,11 @@ def main(args, ds_init):
 
     if global_rank == 0:
         print("Start merging results...")
-        final_top1, final_top5 = merge(args.output_dir, num_tasks)
+        final_top1= merge(args.output_dir, num_tasks)
         print(
-            f"Accuracy of the network on the {len(dataset_test)} test videos: Top-1: {final_top1:.2f}%, Top-5: {final_top5:.2f}%"
+            f"Accuracy of the network on the {len(dataset_test)} test videos: Top-1: {final_top1:.2f}%"
         )
-        log_stats = {'Final top-1': final_top1, 'Final Top-5': final_top5}
+        log_stats = {'Final top-1': final_top1}
         if args.output_dir and utils.is_main_process():
             with open(
                     os.path.join(args.output_dir, "log.txt"),

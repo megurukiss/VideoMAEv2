@@ -80,11 +80,11 @@ def train_one_epoch(model: torch.nn.Module,
                         "weight_decay"] > 0:
                     param_group["weight_decay"] = wd_schedule_values[it]
 
+        targets=ground_truth_decoder(targets)
         samples = samples.to(device, non_blocking=True)
         targets = targets.to(device, non_blocking=True)
         
         # decode ground truth to multilabel [[0.5,0.5],[1,0]] format
-        targets=ground_truth_decoder(targets)
         
         # if mixup_fn is not None:
         #     # mixup handle 3th & 4th dimension
@@ -194,10 +194,12 @@ def validation_one_epoch(data_loader, model, device):
     for batch in metric_logger.log_every(data_loader, 10, header):
         images = batch[0]
         target = batch[1]
+        
+        target=ground_truth_decoder(target)
+        
         images = images.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
         
-        target=ground_truth_decoder(target)
 
         # compute output
         with torch.cuda.amp.autocast():
@@ -242,10 +244,12 @@ def final_test(data_loader, model, device, file):
         ids = batch[2]
         chunk_nb = batch[3]
         split_nb = batch[4]
+        
+        target=ground_truth_decoder(target)
+        
         images = images.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
         
-        target=ground_truth_decoder(target)
 
         # compute output
         with torch.cuda.amp.autocast():

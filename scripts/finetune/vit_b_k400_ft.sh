@@ -5,7 +5,7 @@ export MASTER_PORT=$((12000 + $RANDOM % 20000))
 export OMP_NUM_THREADS=1
 
 OUTPUT_DIR='YOUR_PATH/work_dir/vit_b_hybrid_pt_800e_k400_ft'
-DATA_PATH='YOUR_PATH/data/k400'
+DATA_PATH='/tsukimi/datasets/Chiba/baseline'
 MODEL_PATH='YOUR_PATH/model_zoo/vit_b_hybrid_pt_800e.pth'
 
 JOB_NAME=$1
