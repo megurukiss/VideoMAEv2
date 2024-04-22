@@ -1,6 +1,8 @@
+#!/usr/bin/env bash
+
 DATA_PATH='/tsukimi/datasets/Chiba/baseline/datalist/'
 OUTPUT_DIR='/tsukimi/datasets/Chiba/baseline/checkpoints'
-MODEL_PATH='/tsukimi/datasets/Chiba/baseline/checkpoints/pretrained_weights/vit_s_k710_dl_from_giant.pth'
+MODEL_PATH='/tsukimi/datasets/Chiba/baseline/checkpoints/pretrained_weights/vit_g_ps14_ak_ft_ckpt_7_clean.pth'
 
 python run_class_finetuning.py \
         --model vit_base_patch16_224 \
@@ -25,4 +27,4 @@ python run_class_finetuning.py \
         --test_num_segment 5 \
         --test_num_crop 3 \
         --epochs 90 \
-        --dist_eval --enable_deepspeed \
+        --dist_eval \
