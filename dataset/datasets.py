@@ -11,7 +11,8 @@ from torchvision import transforms
 from . import video_transforms, volume_transforms
 from .loader import get_image_loader, get_video_loader
 from .random_erasing import RandomErasing
-
+import pickle
+import sys
 
 class VideoClsDataset(Dataset):
     """Load your own video classification dataset."""
@@ -125,6 +126,11 @@ class VideoClsDataset(Dataset):
                     frame_list.append(new_frames)
                     label_list.append(label)
                     index_list.append(index)
+                # save sample data as pickle
+                # with open('./samples/sample_data.pkl', 'wb') as f:
+                #     dataset=[frame_list, label_list, index_list, {}]
+                #     pickle.dump(dataset, f)
+                #     sys.exit()
                 return frame_list, label_list, index_list, {}
             else:
                 buffer = self._aug_frame(buffer, args)
@@ -205,15 +211,15 @@ class VideoClsDataset(Dataset):
             raise NameError('mode {} unkown'.format(self.mode))
 
     def _aug_frame(self, buffer, args):
-        aug_transform = video_transforms.create_random_augment(
-            input_size=(self.crop_size, self.crop_size),
-            auto_augment=args.aa,
-            interpolation=args.train_interpolation,
-        )
+        # aug_transform = video_transforms.create_random_augment(
+        #     input_size=(self.crop_size, self.crop_size),
+        #     auto_augment=args.aa,
+        #     interpolation=args.train_interpolation,
+        # )
 
         buffer = [transforms.ToPILImage()(frame) for frame in buffer]
 
-        buffer = aug_transform(buffer)
+        # buffer = aug_transform(buffer)
 
         buffer = [transforms.ToTensor()(img) for img in buffer]
         buffer = torch.stack(buffer)  # T C H W
@@ -507,15 +513,15 @@ class RawFrameClsDataset(Dataset):
             raise NameError('mode {} unkown'.format(self.mode))
 
     def _aug_frame(self, buffer, args):
-        aug_transform = video_transforms.create_random_augment(
-            input_size=(self.crop_size, self.crop_size),
-            auto_augment=args.aa,
-            interpolation=args.train_interpolation,
-        )
+        # aug_transform = video_transforms.create_random_augment(
+        #     input_size=(self.crop_size, self.crop_size),
+        #     auto_augment=args.aa,
+        #     interpolation=args.train_interpolation,
+        # )
 
         buffer = [transforms.ToPILImage()(frame) for frame in buffer]
 
-        buffer = aug_transform(buffer)
+        # buffer = aug_transform(buffer)
 
         buffer = [transforms.ToTensor()(img) for img in buffer]
         buffer = torch.stack(buffer)  # T C H W

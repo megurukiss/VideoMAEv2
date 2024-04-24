@@ -182,6 +182,8 @@ class MetricLogger(object):
             header, total_time_str, total_time / len(iterable)))
 
 
+
+
 class TensorboardLogger(object):
 
     def __init__(self, log_dir):
@@ -318,6 +320,17 @@ def init_distributed_mode(args):
     torch.distributed.barrier()
     assert torch.distributed.is_initialized()
     setup_for_distributed(args.rank == 0)
+
+
+def setup(rank, world_size):
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+
+def cleanup():
+    dist.destroy_process_group()
+    
+
 
 
 def load_state_dict(model,

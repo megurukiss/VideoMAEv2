@@ -18,7 +18,7 @@ from timm.data import Mixup
 from timm.utils import ModelEma, accuracy
 
 import utils
-from eventutils import ground_truth_decoder,multi_label_accuracy,custom_multi_label_pred
+from eventutils import ground_truth_decoder,multi_label_accuracy,custom_multi_label_pred,multi_label_seperate_accuracy
 
 def train_class_batch(model, samples, target, criterion):
     outputs = model(samples)
@@ -141,13 +141,14 @@ def train_one_epoch(model: torch.nn.Module,
 
         torch.cuda.synchronize()
         
-        class_acc = multi_label_accuracy(output, targets)
+        class_acc, class_wise_acc = multi_label_seperate_accuracy(output, targets)
         # if mixup_fn is None:
         #     class_acc = (output.max(-1)[-1] == targets).float().mean()
         # else:
         #     class_acc = None
         metric_logger.update(loss=loss_value)
         metric_logger.update(class_acc=class_acc)
+        # metric_logger.update(label_acc=class_wise_acc)
         metric_logger.update(loss_scale=loss_scale_value)
         min_lr = 10.
         max_lr = 0.
@@ -167,6 +168,7 @@ def train_one_epoch(model: torch.nn.Module,
         if log_writer is not None:
             log_writer.update(loss=loss_value, head="loss")
             log_writer.update(class_acc=class_acc, head="loss")
+            # log_writer.update(label_acc=class_wise_acc, head="loss")
             log_writer.update(loss_scale=loss_scale_value, head="opt")
             log_writer.update(lr=max_lr, head="opt")
             log_writer.update(min_lr=min_lr, head="opt")
@@ -174,10 +176,11 @@ def train_one_epoch(model: torch.nn.Module,
             log_writer.update(grad_norm=grad_norm, head="opt")
 
             log_writer.set_step()
-
+            # print("Label accuracy:", class_wise_acc)
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
-    print("Averaged stats:", metric_logger)
+    # print("Averaged stats:", metric_logger)
+    # print("Label accuracy:", class_wise_acc)
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
 
@@ -206,10 +209,11 @@ def validation_one_epoch(data_loader, model, device):
             output = model(images)
             loss = criterion(output, target)
 
-        class_acc = multi_label_accuracy(output, target)
+        class_acc,class_wise_acc = multi_label_seperate_accuracy(output, target)
         batch_size = images.shape[0]
         metric_logger.update(loss=loss.item())
         metric_logger.meters['acc1'].update(class_acc.item(), n=batch_size)
+        # metric_logger.meters['label_acc'].update(class_wise_acc.item(), n=batch_size)
         # acc1, acc5 = accuracy(output, target, topk=(1, 5))
 
         # batch_size = images.shape[0]
@@ -223,6 +227,9 @@ def validation_one_epoch(data_loader, model, device):
         .format(
             top1=metric_logger.acc1,
             losses=metric_logger.loss))
+    #print label accuracy and class accuracy
+    print("Label accuracy: ",class_wise_acc)
+    print("Overall accuracy: ",metric_logger.meters['acc1'])
 
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
@@ -265,10 +272,11 @@ def final_test(data_loader, model, device, file):
             final_result.append(string)
 
         
-        class_acc = multi_label_accuracy(output, target)
+        class_acc,class_wise_acc = multi_label_seperate_accuracy(output, target)
         batch_size = images.shape[0]
         metric_logger.update(loss=loss.item())
         metric_logger.meters['acc1'].update(class_acc.item(), n=batch_size)
+        # metric_logger.meters['label_acc'].update(class_wise_acc.item(), n=batch_size)
         # acc1, acc5 = accuracy(output, target, topk=(1, 5))
 
         # batch_size = images.shape[0]
@@ -289,6 +297,8 @@ def final_test(data_loader, model, device, file):
         .format(
             top1=metric_logger.acc1,
             losses=metric_logger.loss))
+    print("Label accuracy: ",class_wise_acc)
+    print("Overall accuracy: ",metric_logger.meters['acc1'])
 
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 

@@ -24,6 +24,7 @@ from timm.data.mixup import Mixup
 from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 from timm.models import create_model
 from timm.utils import ModelEma
+import torch.nn as nn
 
 # NOTE: Do not comment `import models`, it is used to register models
 import models  # noqa: F401
@@ -41,8 +42,33 @@ from optim_factory import (
     get_parameter_groups,
 )
 from utils import NativeScalerWithGradNormCount as NativeScaler
-from utils import multiple_samples_collate
+from utils import multiple_samples_collate, setup, cleanup
+from torch.utils.data import DataLoader, DistributedSampler
+from torch.nn.parallel import DistributedDataParallel as DDP
+import sys
 
+def check_model_weights(model, state_dict):
+    # Store initial weights
+    initial_weights = {name: param.data.clone() for name, param in model.named_parameters()}
+    
+    # Load the weights
+    model.load_state_dict(state_dict,strict=False)
+    
+    # Check and print which weights have changed
+    for name, param in model.named_parameters():
+        if not torch.equal(initial_weights[name], param.data):
+            print(f'Weight updated for {name}')
+        else:
+            print(f'No change in weight for {name}')
+
+
+def train(rank, world_size,dataset,model,args):
+    setup(rank, world_size)
+    model =model.to(rank)
+    model = DDP(model, device_ids=[rank])
+    
+    sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank)
+    
 
 def get_args():
     parser = argparse.ArgumentParser(
@@ -371,7 +397,7 @@ def get_args():
         '--pin_mem',
         action='store_true',
         help=
-        'Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.'
+        'Pin CPU memory in DataLoader for more efficient (sometimes) transfer to f.'
     )
     parser.add_argument('--no_pin_mem', action='store_false', dest='pin_mem')
     parser.set_defaults(pin_mem=True)
@@ -404,6 +430,7 @@ def get_args():
 
 
 def main(args, ds_init):
+
     utils.init_distributed_mode(args)
 
     if ds_init is not None:
@@ -671,6 +698,8 @@ def main(args, ds_init):
         utils.load_state_dict(
             model, checkpoint_model, prefix=args.model_prefix)
 
+    nn.init.normal_(model.head.weight, mean=0.0, std=0.1)
+    nn.init.constant_(model.head.bias, 0.1)
     model.to(device)
 
     model_ema = None
@@ -736,8 +765,10 @@ def main(args, ds_init):
         assert model.gradient_accumulation_steps() == args.update_freq
     else:
         if args.distributed:
+            # model = torch.nn.parallel.DistributedDataParallel(
+                # model, device_ids=[args.gpu], find_unused_parameters=False)
             model = torch.nn.parallel.DistributedDataParallel(
-                model, device_ids=[args.gpu], find_unused_parameters=False)
+                model, device_ids=[0,1,2,3], find_unused_parameters=False)
             model_without_ddp = model.module
 
         optimizer = create_optimizer(
@@ -781,13 +812,13 @@ def main(args, ds_init):
 
     
     # to be check
-    utils.auto_load_model(
-        args=args,
-        model=model,
-        model_without_ddp=model_without_ddp,
-        optimizer=optimizer,
-        loss_scaler=loss_scaler,
-        model_ema=model_ema)
+    # utils.auto_load_model(
+    #     args=args,
+    #     model=model,
+    #     model_without_ddp=model_without_ddp,
+    #     optimizer=optimizer,
+    #     loss_scaler=loss_scaler,
+    #     model_ema=model_ema)
     if args.validation:
         test_stats = validation_one_epoch(data_loader_val, model, device)
         print(
@@ -814,6 +845,7 @@ def main(args, ds_init):
                     f.write(json.dumps(log_stats) + "\n")
         exit(0)
 
+    
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     max_accuracy = 0.0

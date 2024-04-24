@@ -25,7 +25,7 @@ def custom_multi_label_pred(outputs,threshold=0.7):
     Returns:
     - preds (torch.Tensor): predicted labels as a binary tensor.
     """
-    sigmoids = torch.sigmoid(outputs)
+    sigmoids = torch.softmax(outputs, dim=1)
     preds = torch.zeros_like(sigmoids)
     for i in range(sigmoids.shape[0]):  # Iterate over each sample
         top_values, top_indices = torch.topk(sigmoids[i], 2) # Get the indices of the top 2 probabilities
@@ -59,4 +59,27 @@ def multi_label_accuracy(outputs, targets, threshold=0.7):
     count_total = targets.sum()
     overall_acc=count_correct/count_total
     return overall_acc
+
+def multi_label_seperate_accuracy(outputs,targets,threshold=0.7):
+    """
+    Calculate accuracy for multi-label classification.
+    Args:
+    - outputs (torch.Tensor): raw logits from the model (before sigmoid).
+    - targets (torch.Tensor): ground truth binary labels.
+    - threshold (float): threshold for converting probabilities to binary output.
     
+    Returns:
+    - accuracy (torch.Tensor): accuracy per label.
+    - sample_accuracy (float): percentage of completely correct samples.
+    """
+    
+    preds=custom_multi_label_pred(outputs,threshold)
+    correct = (preds == targets).float()
+    # add values for correct places
+    vals=targets[correct==1]
+    count_correct = vals.sum()
+    count_total = targets.sum()
+    overall_acc=count_correct/count_total
+    # acc_per_label = correct.sum(dim=0) / targets.sum(dim=0)
+    # # if there are no samples for a label, set accuracy to 0
+    return overall_acc,torch.softmax(outputs, dim=1)
