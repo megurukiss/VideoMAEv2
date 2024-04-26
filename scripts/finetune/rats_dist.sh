@@ -4,13 +4,14 @@ DATA_PATH='/tsukimi/datasets/Chiba/baseline/datalist/'
 OUTPUT_DIR='/tsukimi/datasets/Chiba/baseline/checkpoints'
 MODEL_PATH='/tsukimi/datasets/Chiba/baseline/checkpoints/pretrained_weights/vit_b_k710_dl_from_giant.pth'
 # MODEL_PATH='/tsukimi/datasets/Chiba/baseline/checkpoints/checkpoint-39/mp_rank_00_model_states.pt'
-python run_class_finetuning.py \
+python -m torch.distributed.launch --nproc_per_node=4 \
+        fintune.py \
         --model vit_base_patch16_224 \
         --data_path ${DATA_PATH} \
         --finetune ${MODEL_PATH} \
         --log_dir ${OUTPUT_DIR} \
         --output_dir ${OUTPUT_DIR} \
-        --batch_size 2 \
+        --batch_size 4 \
         --input_size 224 \
         --nb_classes 7 \
         --data_set rats \
@@ -27,7 +28,7 @@ python run_class_finetuning.py \
         --test_num_segment 5 \
         --test_num_crop 3 \
         --epochs 90 \
-        --dist_eval --enable_deepspeed \
+        --dist_eval \
 
 
 # freeze parameters

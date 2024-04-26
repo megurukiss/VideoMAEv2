@@ -43,11 +43,10 @@ from optim_factory import (
 )
 from utils import NativeScalerWithGradNormCount as NativeScaler
 from utils import multiple_samples_collate, setup, cleanup
-from torch.utils.data import DataLoader, DistributedSampler,Sampler
+from torch.utils.data import DataLoader, DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 import sys
 
-# compare the weights of the model before and after loading the state_dict
 def check_model_weights(model, state_dict):
     # Store initial weights
     initial_weights = {name: param.data.clone() for name, param in model.named_parameters()}
@@ -62,62 +61,13 @@ def check_model_weights(model, state_dict):
         else:
             print(f'No change in weight for {name}')
 
-# add weights to train data loader
-data_distribution={'interaction_with_partner': 8036,
-            'running': 18632,
-            'restrainer_interaction': 14198,
-            'unsupported_rearing': 1562,
-            'idle_actions': 606,
-            'climbing_on_side': 1258,
-            'immobility': 304}
 
-def cal_weight(labels):
-    label=labels.split('&')
-    label1=label[0]
-    label2=label[1]
-    num_label1=data_distribution[label1]
-    num_label2=data_distribution[label2]
-    num_harmonic_mean=2/(1/num_label1+1/num_label2)
-    # return weights
-    return 1.0/num_harmonic_mean
-
-def apply_weight(dataset,indices):
-    weights=[]
-    for i in indices:
-        datai_label=dataset[i][1]
-        weighti=cal_weight(datai_label)
-        weights.append(weighti)
-    return torch.tensor(weights)
-        
-
-class WeightedDistributedSampler(Sampler):
-    def __init__(self, dataset, num_replicas=None, rank=None, shuffle=True):
-        self.dataset = dataset
-        self.num_replicas = num_replicas
-        self.rank = rank
-        
-        self.dist_sampler = DistributedSampler(
-            self.dataset,
-            num_replicas=self.num_replicas,
-            rank=self.rank,
-            shuffle=True,
-        )
-        self.indices = list(self.dist_sampler)
-        self.weights=apply_weight(dataset,self.indices)
+def train(rank, world_size,dataset,model,args):
+    setup(rank, world_size)
+    model =model.to(rank)
+    model = DDP(model, device_ids=[rank])
     
-    def __iter__(self):
-        # Generate weights for the specific indices this sampler handles
-        if self.shuffle:
-            # Weights need to be used to sample with replacement from the indices
-            total_samples = len(self.indices)
-            sampled_indices = torch.multinomial(self.weights, total_samples, replacement=True)
-            return iter([self.indices[i] for i in sampled_indices])
-        else:
-            # Return the indices in their original order (not typical for weighted sampling)
-            return iter(self.indices)
-    
-    def __len__(self):
-        return len(self.indices)
+    sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank)
     
 
 def get_args():
@@ -479,10 +429,10 @@ def get_args():
     return parser.parse_args(), ds_init
 
 
-def main(args, ds_init):
+def main(rank, world_size, args, ds_init):
 
-    utils.init_distributed_mode(args)
-
+    # utils.init_distributed_mode(args)
+    setup(rank, world_size)
     if ds_init is not None:
         utils.create_ds_config(args)
 
@@ -494,7 +444,7 @@ def main(args, ds_init):
     seed = args.seed + utils.get_rank()
     torch.manual_seed(seed)
     np.random.seed(seed)
-    # random.seed(seed)
+    random.seed(seed)
     cudnn.benchmark = True
 
     dataset_train, args.nb_classes = build_dataset(
@@ -508,9 +458,8 @@ def main(args, ds_init):
 
     num_tasks = utils.get_world_size()
     global_rank = utils.get_rank()
-    
-    # sampler_train = torch.utils.data.DistributedSampler(
-    #     dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True)
+    sampler_train = torch.utils.data.DistributedSampler(
+        dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True)
     print("Sampler_train = %s" % str(sampler_train))
     if args.dist_eval:
         if len(dataset_val) % num_tasks != 0:
@@ -798,39 +747,39 @@ def main(args, ds_init):
     skip_weight_decay_list = model.no_weight_decay()
     print("Skip weight decay list: ", skip_weight_decay_list)
 
-    if args.enable_deepspeed:
-        loss_scaler = None
-        optimizer_params = get_parameter_groups(
-            model, args.weight_decay, skip_weight_decay_list,
-            assigner.get_layer_id if assigner is not None else None,
-            assigner.get_scale if assigner is not None else None)
-        model, optimizer, _, _ = ds_init(
-            args=args,
-            model=model,
-            model_parameters=optimizer_params,
-            dist_init_required=not args.distributed,
-        )
+    # if args.enable_deepspeed:
+    #     loss_scaler = None
+    #     optimizer_params = get_parameter_groups(
+    #         model, args.weight_decay, skip_weight_decay_list,
+    #         assigner.get_layer_id if assigner is not None else None,
+    #         assigner.get_scale if assigner is not None else None)
+    #     model, optimizer, _, _ = ds_init(
+    #         args=args,
+    #         model=model,
+    #         model_parameters=optimizer_params,
+    #         dist_init_required=not args.distributed,
+    #     )
 
-        print("model.gradient_accumulation_steps() = %d" %
-              model.gradient_accumulation_steps())
-        assert model.gradient_accumulation_steps() == args.update_freq
-    else:
-        if args.distributed:
+    #     print("model.gradient_accumulation_steps() = %d" %
+    #           model.gradient_accumulation_steps())
+    #     assert model.gradient_accumulation_steps() == args.update_freq
+    # else:
+        # if args.distributed:
             # model = torch.nn.parallel.DistributedDataParallel(
                 # model, device_ids=[args.gpu], find_unused_parameters=False)
-            model = torch.nn.parallel.DistributedDataParallel(
-                model, device_ids=[0,1,2,3], find_unused_parameters=False)
-            model_without_ddp = model.module
+    model = torch.nn.parallel.DistributedDataParallel(
+        model, device_ids=[0,1,2,3], find_unused_parameters=False)
+    model_without_ddp = model.module
 
-        optimizer = create_optimizer(
-            args,
-            model_without_ddp,
-            skip_list=skip_weight_decay_list,
-            get_num_layer=assigner.get_layer_id
-            if assigner is not None else None,
-            get_layer_scale=assigner.get_scale
-            if assigner is not None else None)
-        loss_scaler = NativeScaler()
+    optimizer = create_optimizer(
+        args,
+        model_without_ddp,
+        skip_list=skip_weight_decay_list,
+        get_num_layer=assigner.get_layer_id
+        if assigner is not None else None,
+        get_layer_scale=assigner.get_scale
+        if assigner is not None else None)
+    loss_scaler = NativeScaler()
 
     print("Use step level LR scheduler!")
     lr_schedule_values = utils.cosine_scheduler(
@@ -1003,10 +952,12 @@ def main(args, ds_init):
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))
-
-
+    cleanup()
+    
 if __name__ == '__main__':
     opts, ds_init = get_args()
     if opts.output_dir:
         Path(opts.output_dir).mkdir(parents=True, exist_ok=True)
-    main(opts, ds_init)
+    # main(opts, ds_init)
+    world_size = 4
+    torch.multiprocessing.spawn(main, nprocs=opts.world_size, args=(world_size, opts, ds_init))
