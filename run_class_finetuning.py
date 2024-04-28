@@ -46,6 +46,7 @@ from utils import multiple_samples_collate, setup, cleanup
 from torch.utils.data import DataLoader, DistributedSampler,Sampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 import sys
+from catalyst.data.sampler import DistributedSamplerWrapper
 
 # compare the weights of the model before and after loading the state_dict
 def check_model_weights(model, state_dict):
@@ -81,43 +82,46 @@ def cal_weight(labels):
     # return weights
     return 1.0/num_harmonic_mean
 
-def apply_weight(dataset,indices):
+def apply_weight(dataset):
     weights=[]
-    for i in indices:
-        datai_label=dataset[i][1]
-        weighti=cal_weight(datai_label)
-        weights.append(weighti)
+    for idx,data in enumerate(dataset):
+        # print the complete percentage of the dataset
+        print(f'Percentage of the dataset processed: {idx/len(dataset)*100}%')
+        datai_label=data[1][0]
+        weighti1=cal_weight(datai_label)
+        datai_label=data[1][1]
+        weighti2=cal_weight(datai_label)
+        weights.append((weighti1+weighti2)/2)
     return torch.tensor(weights)
         
-
-class WeightedDistributedSampler(Sampler):
-    def __init__(self, dataset, num_replicas=None, rank=None, shuffle=True):
-        self.dataset = dataset
-        self.num_replicas = num_replicas
-        self.rank = rank
+# class WeightedDistributedSampler(Sampler):
+#     def __init__(self, dataset, num_replicas=None, rank=None, shuffle=True):
+#         self.dataset = dataset
+#         self.num_replicas = num_replicas
+#         self.rank = rank
         
-        self.dist_sampler = DistributedSampler(
-            self.dataset,
-            num_replicas=self.num_replicas,
-            rank=self.rank,
-            shuffle=True,
-        )
-        self.indices = list(self.dist_sampler)
-        self.weights=apply_weight(dataset,self.indices)
+#         self.dist_sampler = DistributedSampler(
+#             self.dataset,
+#             num_replicas=self.num_replicas,
+#             rank=self.rank,
+#             shuffle=True,
+#         )
+#         self.indices = list(self.dist_sampler)
+#         self.weights=apply_weight(dataset,self.indices)
     
-    def __iter__(self):
-        # Generate weights for the specific indices this sampler handles
-        if self.shuffle:
-            # Weights need to be used to sample with replacement from the indices
-            total_samples = len(self.indices)
-            sampled_indices = torch.multinomial(self.weights, total_samples, replacement=True)
-            return iter([self.indices[i] for i in sampled_indices])
-        else:
-            # Return the indices in their original order (not typical for weighted sampling)
-            return iter(self.indices)
+#     def __iter__(self):
+#         # Generate weights for the specific indices this sampler handles
+#         if self.shuffle:
+#             # Weights need to be used to sample with replacement from the indices
+#             total_samples = len(self.indices)
+#             sampled_indices = torch.multinomial(self.weights, total_samples, replacement=True)
+#             return iter([self.indices[i] for i in sampled_indices])
+#         else:
+#             # Return the indices in their original order (not typical for weighted sampling)
+#             return iter(self.indices)
     
-    def __len__(self):
-        return len(self.indices)
+#     def __len__(self):
+#         return len(self.indices)
     
 
 def get_args():
@@ -509,6 +513,14 @@ def main(args, ds_init):
     num_tasks = utils.get_world_size()
     global_rank = utils.get_rank()
     
+    # apply weighted distributed samplers
+    weights=apply_weight(dataset_train)
+    weighted_sampler=torch.utils.data.WeightedRandomSampler(weights,len(weights))
+    sampler_train=DistributedSamplerWrapper(sampler=weighted_sampler,num_replicas=num_tasks,rank=global_rank)
+    
+    # sampler_train = WeightedDistributedSampler(
+    #     dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True)
+    
     # sampler_train = torch.utils.data.DistributedSampler(
     #     dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True)
     print("Sampler_train = %s" % str(sampler_train))
@@ -549,8 +561,7 @@ def main(args, ds_init):
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
-        collate_fn=collate_func,
-        persistent_workers=True)
+        collate_fn=collate_func)
 
     if dataset_val is not None:
         data_loader_val = torch.utils.data.DataLoader(
@@ -559,8 +570,7 @@ def main(args, ds_init):
             batch_size=int(1.5 * args.batch_size),
             num_workers=args.num_workers,
             pin_memory=args.pin_mem,
-            drop_last=False,
-            persistent_workers=True)
+            drop_last=False)
     else:
         data_loader_val = None
 
@@ -571,8 +581,7 @@ def main(args, ds_init):
             batch_size=args.batch_size,
             num_workers=args.num_workers,
             pin_memory=args.pin_mem,
-            drop_last=False,
-            persistent_workers=True)
+            drop_last=False)
     else:
         data_loader_test = None
 
@@ -819,7 +828,7 @@ def main(args, ds_init):
             # model = torch.nn.parallel.DistributedDataParallel(
                 # model, device_ids=[args.gpu], find_unused_parameters=False)
             model = torch.nn.parallel.DistributedDataParallel(
-                model, device_ids=[0,1,2,3], find_unused_parameters=False)
+                model, device_ids=[args.gpu], find_unused_parameters=False)
             model_without_ddp = model.module
 
         optimizer = create_optimizer(
@@ -863,13 +872,13 @@ def main(args, ds_init):
 
     
     # to be check
-    # utils.auto_load_model(
-    #     args=args,
-    #     model=model,
-    #     model_without_ddp=model_without_ddp,
-    #     optimizer=optimizer,
-    #     loss_scaler=loss_scaler,
-    #     model_ema=model_ema)
+    utils.auto_load_model(
+        args=args,
+        model=model,
+        model_without_ddp=model_without_ddp,
+        optimizer=optimizer,
+        loss_scaler=loss_scaler,
+        model_ema=model_ema)
     if args.validation:
         test_stats = validation_one_epoch(data_loader_val, model, device)
         print(
