@@ -9,6 +9,7 @@
 import argparse
 import datetime
 import json
+import pickle
 import os
 import random
 import time
@@ -514,7 +515,17 @@ def main(args, ds_init):
     global_rank = utils.get_rank()
     
     # apply weighted distributed samplers
-    weights=apply_weight(dataset_train)
+    weight_path='/tsukimi/datasets/Chiba/baseline/weights.pkl'
+    # if file exists, load the weights
+    if os.path.exists(weight_path):
+        with open(weight_path, 'rb') as f:
+            weights=pickle.load(f)
+    else:
+        weights=apply_weight(dataset_train)
+        # save the weights
+        with open(weight_path, 'wb') as f:
+            pickle.dump(weights,f)
+            
     weighted_sampler=torch.utils.data.WeightedRandomSampler(weights,len(weights))
     sampler_train=DistributedSamplerWrapper(sampler=weighted_sampler,num_replicas=num_tasks,rank=global_rank)
     
