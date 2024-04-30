@@ -127,10 +127,11 @@ class VideoClsDataset(Dataset):
                     label_list.append(label)
                     index_list.append(index)
                 # save sample data as pickle
-                # with open('./samples/sample_data.pkl', 'wb') as f:
-                #     dataset=[frame_list, label_list, index_list, {}]
-                #     pickle.dump(dataset, f)
-                #     sys.exit()
+                if index == 0:
+                    with open('./samples/sample_data.pkl', 'wb') as f:
+                        dataset=[frame_list, label_list, index_list, {}]
+                        pickle.dump(dataset, f)
+                        # sys.exit()
                 return frame_list, label_list, index_list, {}
             else:
                 buffer = self._aug_frame(buffer, args)
@@ -235,31 +236,35 @@ class VideoClsDataset(Dataset):
             [0.08, 1.0],
             [0.75, 1.3333],
         )
+        resize_transform = transforms.Resize((224, 224))
+        
+        resized_frames = [resize_transform(buffer[:, i]) for i in range(buffer.shape[1])]
+        buffer = torch.stack(resized_frames, dim=1)
+        
+        # buffer = spatial_sampling(
+        #     buffer,
+        #     spatial_idx=-1,
+        #     min_scale=256,
+        #     max_scale=320,
+        #     # crop_size=224,
+        #     crop_size=args.input_size,
+        #     random_horizontal_flip=False if args.data_set == 'SSV2' else True,
+        #     inverse_uniform_sampling=False,
+        #     aspect_ratio=asp,
+        #     scale=scl,
+        #     motion_shift=False)
 
-        buffer = spatial_sampling(
-            buffer,
-            spatial_idx=-1,
-            min_scale=256,
-            max_scale=320,
-            # crop_size=224,
-            crop_size=args.input_size,
-            random_horizontal_flip=False if args.data_set == 'SSV2' else True,
-            inverse_uniform_sampling=False,
-            aspect_ratio=asp,
-            scale=scl,
-            motion_shift=False)
-
-        if self.rand_erase:
-            erase_transform = RandomErasing(
-                args.reprob,
-                mode=args.remode,
-                max_count=args.recount,
-                num_splits=args.recount,
-                device="cpu",
-            )
-            buffer = buffer.permute(1, 0, 2, 3)  # C T H W -> T C H W
-            buffer = erase_transform(buffer)
-            buffer = buffer.permute(1, 0, 2, 3)  # T C H W -> C T H W
+        # if self.rand_erase:
+        #     erase_transform = RandomErasing(
+        #         args.reprob,
+        #         mode=args.remode,
+        #         max_count=args.recount,
+        #         num_splits=args.recount,
+        #         device="cpu",
+        #     )
+        #     buffer = buffer.permute(1, 0, 2, 3)  # C T H W -> T C H W
+        #     buffer = erase_transform(buffer)
+        #     buffer = buffer.permute(1, 0, 2, 3)  # T C H W -> C T H W
 
         return buffer
 
@@ -675,7 +680,7 @@ def spatial_sampling(
                 max_size=max_scale,
                 inverse_uniform_sampling=inverse_uniform_sampling,
             )
-            frames, _ = video_transforms.random_crop(frames, crop_size)
+            # frames, _ = video_transforms.random_crop(frames, crop_size)
         else:
             transform_func = (
                 video_transforms.random_resized_crop_with_shift
@@ -695,8 +700,8 @@ def spatial_sampling(
         assert len({min_scale, max_scale, crop_size}) == 1
         frames, _ = video_transforms.random_short_side_scale_jitter(
             frames, min_scale, max_scale)
-        frames, _ = video_transforms.uniform_crop(frames, crop_size,
-                                                  spatial_idx)
+        # frames, _ = video_transforms.uniform_crop(frames, crop_size,
+        #                                           spatial_idx)
     return frames
 
 

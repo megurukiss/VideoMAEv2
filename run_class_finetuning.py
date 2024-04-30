@@ -85,44 +85,25 @@ def cal_weight(labels):
 
 def apply_weight(dataset):
     weights=[]
-    for idx,data in enumerate(dataset):
+    for idx,label in enumerate(dataset.label_array):
         # print the complete percentage of the dataset
         print(f'Percentage of the dataset processed: {idx/len(dataset)*100}%')
-        datai_label=data[1][0]
-        weighti1=cal_weight(datai_label)
-        datai_label=data[1][1]
-        weighti2=cal_weight(datai_label)
-        weights.append((weighti1+weighti2)/2)
+        weighti=cal_weight(label)
+        weights.append(weighti)
     return torch.tensor(weights)
-        
-# class WeightedDistributedSampler(Sampler):
-#     def __init__(self, dataset, num_replicas=None, rank=None, shuffle=True):
-#         self.dataset = dataset
-#         self.num_replicas = num_replicas
-#         self.rank = rank
-        
-#         self.dist_sampler = DistributedSampler(
-#             self.dataset,
-#             num_replicas=self.num_replicas,
-#             rank=self.rank,
-#             shuffle=True,
-#         )
-#         self.indices = list(self.dist_sampler)
-#         self.weights=apply_weight(dataset,self.indices)
-    
-#     def __iter__(self):
-#         # Generate weights for the specific indices this sampler handles
-#         if self.shuffle:
-#             # Weights need to be used to sample with replacement from the indices
-#             total_samples = len(self.indices)
-#             sampled_indices = torch.multinomial(self.weights, total_samples, replacement=True)
-#             return iter([self.indices[i] for i in sampled_indices])
-#         else:
-#             # Return the indices in their original order (not typical for weighted sampling)
-#             return iter(self.indices)
-    
-#     def __len__(self):
-#         return len(self.indices)
+
+
+# def apply_weight(dataset):
+#     weights=[]
+#     for idx,data in enumerate(dataset):
+#         # print the complete percentage of the dataset
+#         print(f'Percentage of the dataset processed: {idx/len(dataset)*100}%')
+#         datai_label=data[1][0]
+#         weighti1=cal_weight(datai_label)
+#         datai_label=data[1][1]
+#         weighti2=cal_weight(datai_label)
+#         weights.append((weighti1+weighti2)/2)
+#     return torch.tensor(weights)
     
 
 def get_args():
@@ -883,13 +864,13 @@ def main(args, ds_init):
 
     
     # to be check
-    utils.auto_load_model(
-        args=args,
-        model=model,
-        model_without_ddp=model_without_ddp,
-        optimizer=optimizer,
-        loss_scaler=loss_scaler,
-        model_ema=model_ema)
+    # utils.auto_load_model(
+    #     args=args,
+    #     model=model,
+    #     model_without_ddp=model_without_ddp,
+    #     optimizer=optimizer,
+    #     loss_scaler=loss_scaler,
+    #     model_ema=model_ema)
     if args.validation:
         test_stats = validation_one_epoch(data_loader_val, model, device)
         print(

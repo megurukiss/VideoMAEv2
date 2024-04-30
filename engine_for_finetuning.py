@@ -18,7 +18,7 @@ from timm.data import Mixup
 from timm.utils import ModelEma, accuracy
 
 import utils
-from eventutils import ground_truth_decoder,multi_label_accuracy,custom_multi_label_pred,multi_label_seperate_accuracy
+from eventutils import ground_truth_decoder,multi_label_accuracy,custom_multi_label_pred,multi_label_seperate_accuracy,multi_label_confusion_matrix
 
 def train_class_batch(model, samples, target, criterion):
     outputs = model(samples)
@@ -193,7 +193,8 @@ def validation_one_epoch(data_loader, model, device):
 
     # switch to evaluation mode
     model.eval()
-
+    ground_truth_labels=[]
+    pred_labels=[]
     for batch in metric_logger.log_every(data_loader, 10, header):
         images = batch[0]
         target = batch[1]
@@ -210,6 +211,10 @@ def validation_one_epoch(data_loader, model, device):
             loss = criterion(output, target)
 
         class_acc,class_wise_acc = multi_label_seperate_accuracy(output, target)
+        
+        pred_labels.append(custom_multi_label_pred(output))
+        ground_truth_labels.append(target)
+        
         batch_size = images.shape[0]
         metric_logger.update(loss=loss.item())
         metric_logger.meters['acc1'].update(class_acc.item(), n=batch_size)
@@ -231,6 +236,12 @@ def validation_one_epoch(data_loader, model, device):
     print("Label accuracy: ",class_wise_acc)
     print("Overall accuracy: ",metric_logger.meters['acc1'])
 
+    # generate confusion matrix
+    ground_truth_labels=torch.cat(ground_truth_labels)
+    pred_labels=torch.cat(pred_labels)
+    confusion_matrix=multi_label_confusion_matrix(ground_truth_labels,pred_labels)
+    
+    
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
 

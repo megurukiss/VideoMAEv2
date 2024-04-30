@@ -5,6 +5,17 @@ label_map={'restrainer_interaction': 0, 'unsupported_rearing': 1,
            'interaction_with_partner': 5, 'climbing_on_side': 6}
 
 def ground_truth_decoder(labels,num_classes=len(label_map)):
+    """
+        Decode the ground truth labels into a tensor.
+        Args:
+        - labels (list): list of strings representing the labels. examples: ['restrainer_interaction&running', 'immobility&idle_actions']
+        - num_classes (int): number of classes in the dataset.
+        
+        Returns:
+        - decoded (torch.Tensor): tensor of shape (len(labels), num_classes) with 1s in the corresponding positions.
+        examples: [[0.5,0.5,0,0,0,0,0],[0,0,0,0,0,0,1]]
+    """
+    
     decoded = torch.zeros((len(labels), num_classes))
     for i, label in enumerate(labels):
         parts = label.split('&')
@@ -47,14 +58,21 @@ def multi_label_accuracy(outputs, targets, threshold=0.7):
     - threshold (float): threshold for converting probabilities to binary output.
     
     Returns:
-    - accuracy (torch.Tensor): accuracy per label.
-    - sample_accuracy (float): percentage of completely correct samples.
+    - overall accuracy (float): percentage of completely correct samples.
     """
     
     preds=custom_multi_label_pred(outputs,threshold)
-    correct = (preds == targets).float()
-    # add values for correct places
-    vals=targets[correct==1]
+    preds_non_empty=(preds!=0)
+    targets_non_empty=(targets!=0)
+    # get indexes where both are non empty
+    non_empty=preds_non_empty*targets_non_empty
+    
+    # correct = (preds == targets).float()
+    
+    # for non empty indexes, get the minimum value
+    vals=torch.stack([preds[non_empty], targets[non_empty]]).min(dim=0).values
+    
+    # count correct values
     count_correct = vals.sum()
     count_total = targets.sum()
     overall_acc=count_correct/count_total
@@ -69,17 +87,52 @@ def multi_label_seperate_accuracy(outputs,targets,threshold=0.7):
     - threshold (float): threshold for converting probabilities to binary output.
     
     Returns:
-    - accuracy (torch.Tensor): accuracy per label.
-    - sample_accuracy (float): percentage of completely correct samples.
+    -  overall accuracy (float): percentage of completely correct samples.
+    -  preds (torch.Tensor): predicted labels as a binary tensor.
     """
     
     preds=custom_multi_label_pred(outputs,threshold)
-    correct = (preds == targets).float()
-    # add values for correct places
-    vals=targets[correct==1]
+    
+    preds_non_empty=(preds!=0)
+    targets_non_empty=(targets!=0)
+    # get indexes where both are non empty
+    non_empty=preds_non_empty*targets_non_empty
+    
+    # correct = (preds == targets).float()
+    
+    # for non empty indexes, get the minimum value
+    vals=torch.stack([preds[non_empty], targets[non_empty]]).min(dim=0).values
     count_correct = vals.sum()
     count_total = targets.sum()
     overall_acc=count_correct/count_total
     # acc_per_label = correct.sum(dim=0) / targets.sum(dim=0)
     # # if there are no samples for a label, set accuracy to 0
     return overall_acc,torch.softmax(outputs, dim=1)
+
+
+def multi_label_confusion_matrix(ground_truth_labels,pred_labels):
+    """
+    Calculate confusion matrix for multi-label classification.
+    Args:
+    - ground_truth_labels (torch.Tensor): ground truth binary labels. torch.tensor, [[0.5,0.5,0],[0,0,1],[0.5,0,0.5]], if 2 labels overlap, it is considered as 1.
+    - pred_labels (torch.Tensor): predicted binary labels. same shape as ground_truth_labels.
+    """
+    
+    # emopty confusion matrix
+    length=len(ground_truth_labels[0])
+    confusion_matrix=torch.zeros((length,length))
+    
+    
+    for i in range(len(ground_truth_labels)):
+        for j in range(length):
+            # count TP
+            if ground_truth_labels[i][j]!=0 and pred_labels[i][j]!=0:
+                confusion_matrix[j][j]+=1
+            if ground_truth_labels[i][j]==pred_labels[i][j] and ground_truth_labels[i][j]==1:
+                confusion_matrix[j][j]+=1
+            
+            # count FP
+            if ground_truth_labels[i][j]==0 and pred_labels[i][j]==1:
+                pass
+    
+    
