@@ -62,18 +62,19 @@ def multi_label_accuracy(outputs, targets, threshold=0.7):
     """
     
     preds=custom_multi_label_pred(outputs,threshold)
-    preds_non_empty=(preds!=0)
-    targets_non_empty=(targets!=0)
-    # get indexes where both are non empty
-    non_empty=preds_non_empty*targets_non_empty
+    # preds_non_empty=(preds!=0)
+    # targets_non_empty=(targets!=0)
+    # # get indexes where both are non empty
+    # non_empty=preds_non_empty*targets_non_empty
     
-    # correct = (preds == targets).float()
+    # # correct = (preds == targets).float()
     
-    # for non empty indexes, get the minimum value
-    vals=torch.stack([preds[non_empty], targets[non_empty]]).min(dim=0).values
+    # # for non empty indexes, get the minimum value
+    # vals=torch.stack([preds[non_empty], targets[non_empty]]).min(dim=0).values
     
-    # count correct values
-    count_correct = vals.sum()
+    # # count correct values
+    # count_correct = vals.sum()
+    count_correct=torch.sum(torch.min(preds, targets))
     count_total = targets.sum()
     overall_acc=count_correct/count_total
     return overall_acc
@@ -93,16 +94,17 @@ def multi_label_seperate_accuracy(outputs,targets,threshold=0.7):
     
     preds=custom_multi_label_pred(outputs,threshold)
     
-    preds_non_empty=(preds!=0)
-    targets_non_empty=(targets!=0)
-    # get indexes where both are non empty
-    non_empty=preds_non_empty*targets_non_empty
+    # preds_non_empty=(preds!=0)
+    # targets_non_empty=(targets!=0)
+    # # get indexes where both are non empty
+    # non_empty=preds_non_empty*targets_non_empty
     
-    # correct = (preds == targets).float()
+    # # correct = (preds == targets).float()
     
-    # for non empty indexes, get the minimum value
-    vals=torch.stack([preds[non_empty], targets[non_empty]]).min(dim=0).values
-    count_correct = vals.sum()
+    # # for non empty indexes, get the minimum value
+    # vals=torch.stack([preds[non_empty], targets[non_empty]]).min(dim=0).values
+    # count_correct = vals.sum()
+    count_correct=torch.sum(torch.min(preds, targets))
     count_total = targets.sum()
     overall_acc=count_correct/count_total
     # acc_per_label = correct.sum(dim=0) / targets.sum(dim=0)
