@@ -17,6 +17,8 @@ import torch
 from scipy.special import softmax
 from timm.data import Mixup
 from timm.utils import ModelEma, accuracy
+import datetime
+import pickle
 
 import utils
 from eventutils import ground_truth_decoder,multi_label_accuracy,custom_multi_label_pred,multi_label_seperate_accuracy,multi_label_confusion_matrix
@@ -194,8 +196,11 @@ def validation_one_epoch(data_loader, model, device):
 
     # switch to evaluation mode
     model.eval()
+    
     ground_truth_labels=[]
     pred_labels=[]
+    pred_sigmoids=[]
+    
     for batch in metric_logger.log_every(data_loader, 10, header):
         images = batch[0]
         target = batch[1]
@@ -215,6 +220,9 @@ def validation_one_epoch(data_loader, model, device):
         
         pred_labels.append(custom_multi_label_pred(output))
         ground_truth_labels.append(target)
+        
+        sigmoids = torch.softmax(output, dim=1)
+        pred_sigmoids.append(sigmoids)
         
         batch_size = images.shape[0]
         metric_logger.update(loss=loss.item())
@@ -250,6 +258,11 @@ def validation_one_epoch(data_loader, model, device):
     time_stamp=str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
     plt.savefig(f'./confusion_matrix/{time_stamp}.jpg')
     plt.close()
+    
+    # save sigmoid values to ./outputs/{timestamp}.pickle
+    pred_sigmoids=torch.cat(pred_sigmoids)
+    save_path=f'./outputs/{time_stamp}.pt'
+    torch.save(pred_sigmoids,save_path)
     
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 

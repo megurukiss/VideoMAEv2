@@ -29,8 +29,8 @@ OMP_NUM_THREADS=1 python -m torch.distributed.launch --nproc_per_node=4 \
         --layer_decay 0.75 \
         --test_num_segment 5 \
         --test_num_crop 3 \
-        --epochs 90 \
-        --dist_eval \
+        --epochs 90 
+        # --dist_eval \
 
 
 # freeze parameters

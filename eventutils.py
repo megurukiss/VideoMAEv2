@@ -26,7 +26,7 @@ def ground_truth_decoder(labels,num_classes=len(label_map)):
             decoded[i, label_map[part]] += 1
     return decoded/(len(parts))
 
-def custom_multi_label_pred(outputs,threshold=0.7):
+def custom_multi_label_pred(outputs,threshold=0.5):
     """
     Generate predictions based on custom rules:
     - If the highest probability is greater than 0.7, only the highest is selected.
@@ -44,15 +44,20 @@ def custom_multi_label_pred(outputs,threshold=0.7):
     for i in range(sigmoids.shape[0]):  # Iterate over each sample
         top_values, top_indices = torch.topk(sigmoids[i], 2) # Get the indices of the top 2 probabilities
         
+         # if the largest label is interaction_with_partner, then both labels are interaction_with_partners
+        if top_indices[0]==5:
+            preds[i, top_indices[0]] = 1.0
+            continue
+        
         if top_values[0] > threshold:
             preds[i, top_indices[0]] = 1.0
         else:
             preds[i, top_indices[0]] = 0.5
             preds[i, top_indices[1]] = 0.5
-    
+            
     return preds
 
-def multi_label_accuracy(outputs, targets, threshold=0.7):
+def multi_label_accuracy(outputs, targets, threshold=0.5):
     """
     Calculate accuracy for multi-label classification.
     Args:
@@ -82,7 +87,7 @@ def multi_label_accuracy(outputs, targets, threshold=0.7):
     overall_acc=count_correct/count_total
     return overall_acc
 
-def multi_label_seperate_accuracy(outputs,targets,threshold=0.7):
+def multi_label_seperate_accuracy(outputs,targets,threshold=0.5):
     """
     Calculate accuracy for multi-label classification.
     Args:
@@ -163,7 +168,10 @@ def multi_label_confusion_matrix(ground_truth_labels,pred_labels):
             pred[pred_indexes[0]]-=1
             gt_indexes=torch.nonzero(gt)
             pred_indexes=torch.nonzero(pred)
-        
+    # convert to int
+    confusion_matrix=confusion_matrix.int()
+    # convert to numpy
+    confusion_matrix=confusion_matrix.numpy()
     return confusion_matrix
             
     
