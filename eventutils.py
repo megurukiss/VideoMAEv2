@@ -1,4 +1,7 @@
 import torch
+from torchvision import transforms
+import numpy as np
+import torch
 
 label_map={'restrainer_interaction': 0, 'unsupported_rearing': 1,
            'running': 2, 'immobility': 3, 'idle_actions': 4, 
@@ -120,21 +123,85 @@ def multi_label_confusion_matrix(ground_truth_labels,pred_labels):
     - pred_labels (torch.Tensor): predicted binary labels. same shape as ground_truth_labels.
     """
     
+    # double ground truth labels and pred_labels, convert to int
+    ground_truth_labels=ground_truth_labels*2
+    ground_truth_labels=ground_truth_labels.int()
+    pred_labels=pred_labels*2
+    pred_labels=pred_labels.int()
+    
+    
     # emopty confusion matrix
     length=len(ground_truth_labels[0])
     confusion_matrix=torch.zeros((length,length))
     
     
+    # calculate TPs
+    # TPs=torch.sum(torch.min(ground_truth_labels, pred_labels),dim=0)
+    
+    # iterate over each label 
     for i in range(len(ground_truth_labels)):
+        gt=ground_truth_labels[i]
+        pred=pred_labels[i]
+
+        # calculate TP
+        tp=torch.min(gt,pred)
+        # for each TP, increment the corresponding cell in the confusion matrix
         for j in range(length):
-            # count TP
-            if ground_truth_labels[i][j]!=0 and pred_labels[i][j]!=0:
-                confusion_matrix[j][j]+=1
-            if ground_truth_labels[i][j]==pred_labels[i][j] and ground_truth_labels[i][j]==1:
-                confusion_matrix[j][j]+=1
+            if tp[j]==1:
+                confusion_matrix[j,j]+=1
+        
+        # calculate FN
+        gt=gt-tp
+        pred=pred-tp
+        # get non zero indexes
+        gt_indexes=torch.nonzero(gt)
+        pred_indexes=torch.nonzero(pred)
+        # add to confusion matrix
+        while torch.sum(gt)!=0:
+            confusion_matrix[gt_indexes[0],pred_indexes[0]]+=1
+            gt[gt_indexes[0]]-=1
+            pred[pred_indexes[0]]-=1
+            gt_indexes=torch.nonzero(gt)
+            pred_indexes=torch.nonzero(pred)
+        
+    return confusion_matrix
             
-            # count FP
-            if ground_truth_labels[i][j]==0 and pred_labels[i][j]==1:
-                pass
     
     
+def resize_pad(frame, size=224):
+    """
+    resize a frame's longer side to 224, pad the shorter side to 224
+    """
+
+    # get shape
+    c, h, w = frame.shape
+
+    # get longer side
+    longer_side = max(h, w)
+
+    # calculate ratio
+    ratio = size / longer_side
+
+    # resize with transform
+    resize_transform = transforms.Resize((int(h * ratio), int(w * ratio)))
+    frame = resize_transform(frame)
+
+    # get new shape
+    c, h, w = frame.shape
+
+    # calculate padding needed to reach size for both dimensions
+    pad_height = (size - h) if h < size else 0
+    pad_width = (size - w) if w < size else 0
+
+    # calculate padding for each side to center the image
+    pad_top = pad_height // 2
+    pad_bottom = pad_height - pad_top
+    pad_left = pad_width // 2
+    pad_right = pad_width - pad_left
+
+    # apply padding
+    padding_transform = transforms.Pad(padding=(pad_left, pad_top, pad_right, pad_bottom), fill=0, padding_mode='constant')
+    frame = padding_transform(frame)
+
+    return frame
+ 

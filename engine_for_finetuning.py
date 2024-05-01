@@ -10,7 +10,8 @@ import os
 import sys
 from multiprocessing import Pool
 from typing import Iterable, Optional
-
+import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
 import torch
 from scipy.special import softmax
@@ -240,7 +241,15 @@ def validation_one_epoch(data_loader, model, device):
     ground_truth_labels=torch.cat(ground_truth_labels)
     pred_labels=torch.cat(pred_labels)
     confusion_matrix=multi_label_confusion_matrix(ground_truth_labels,pred_labels)
-    
+    # save confusion matrix to ./confusion_matrix/{timestamp}.jpg
+    plt.figure(figsize=(10,10))
+    sns.heatmap(confusion_matrix, annot=True, fmt='d', cmap='Blues')
+    plt.title('Confusion Matrix')
+    plt.ylabel('True Label')
+    plt.xlabel('Predicted Label')
+    time_stamp=str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    plt.savefig(f'./confusion_matrix/{time_stamp}.jpg')
+    plt.close()
     
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 

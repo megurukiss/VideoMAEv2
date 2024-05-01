@@ -13,6 +13,7 @@ from .loader import get_image_loader, get_video_loader
 from .random_erasing import RandomErasing
 import pickle
 import sys
+from eventutils import resize_pad
 
 class VideoClsDataset(Dataset):
     """Load your own video classification dataset."""
@@ -236,9 +237,8 @@ class VideoClsDataset(Dataset):
             [0.08, 1.0],
             [0.75, 1.3333],
         )
-        resize_transform = transforms.Resize((224, 224))
         
-        resized_frames = [resize_transform(buffer[:, i]) for i in range(buffer.shape[1])]
+        resized_frames = [resize_pad(buffer[:, i]) for i in range(buffer.shape[1])]
         buffer = torch.stack(resized_frames, dim=1)
         
         # buffer = spatial_sampling(
