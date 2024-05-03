@@ -19,14 +19,17 @@ from timm.data import Mixup
 from timm.utils import ModelEma, accuracy
 import datetime
 import pickle
+from models import Focal_Loss
 
 import utils
 from eventutils import ground_truth_decoder,multi_label_accuracy,custom_multi_label_pred,multi_label_seperate_accuracy,multi_label_confusion_matrix
 
-def train_class_batch(model, samples, target, criterion):
+def train_class_batch(model, samples, target, criterions):
     outputs = model(samples)
     # target = ground_truth_decoder(target)
-    loss = criterion(outputs, target)
+    loss=0
+    for criterion in criterions:
+        loss+=criterion(outputs,target)
     return loss, outputs
 
 
@@ -96,15 +99,18 @@ def train_one_epoch(model: torch.nn.Module,
         #     samples, targets = mixup_fn(samples, targets)
         #     samples = samples.view(B, C, T, H, W)
         
-        criterion= torch.nn.BCEWithLogitsLoss()
+        criterion1= torch.nn.BCEWithLogitsLoss()
+        criterion2=Focal_Loss()
+        criterions=[criterion1,criterion2]
+        
         if loss_scaler is None:
             samples = samples.half()
             loss, output = train_class_batch(model, samples, targets,
-                                             criterion)
+                                             criterions)
         else:
             with torch.cuda.amp.autocast(dtype=torch.bfloat16):
                 loss, output = train_class_batch(model, samples, targets,
-                                                 criterion)
+                                                 criterions)
 
         loss_value = loss.item()
 
@@ -189,7 +195,8 @@ def train_one_epoch(model: torch.nn.Module,
 
 @torch.no_grad()
 def validation_one_epoch(data_loader, model, device):
-    criterion = torch.nn.BCEWithLogitsLoss()
+    criterion1 = torch.nn.BCEWithLogitsLoss()
+    criterion2 = Focal_Loss()
 
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Val:'
@@ -214,7 +221,9 @@ def validation_one_epoch(data_loader, model, device):
         # compute output
         with torch.cuda.amp.autocast():
             output = model(images)
-            loss = criterion(output, target)
+            loss1 = criterion1(output, target)
+            loss2=criterion2(output,target)
+            loss=loss1+loss2
 
         class_acc,class_wise_acc = multi_label_seperate_accuracy(output, target)
         
@@ -269,7 +278,8 @@ def validation_one_epoch(data_loader, model, device):
 
 @torch.no_grad()
 def final_test(data_loader, model, device, file):
-    criterion = torch.nn.BCEWithLogitsLoss()
+    criterion1 = torch.nn.BCEWithLogitsLoss()
+    criterion2=Focal_Loss()
 
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Test:'
@@ -294,7 +304,9 @@ def final_test(data_loader, model, device, file):
         # compute output
         with torch.cuda.amp.autocast():
             output = model(images)
-            loss = criterion(output, target)
+            loss1 = criterion1(output, target)
+            loss2=criterion2(output,target)
+            loss=loss1+loss2
 
         for i in range(output.size(0)):
             string = "{} {} {} {} {}\n".format(

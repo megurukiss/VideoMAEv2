@@ -100,10 +100,12 @@ dependencies:
   - zstd=1.5.5=hc292b87_0
   - pip:
       - absl-py==2.1.0
+      - accelerate==0.29.3
       - annotated-types==0.6.0
       - av==12.0.0
       - beautifulsoup4==4.12.3
       - cachetools==5.3.3
+      - catalyst==22.4
       - cmake==3.29.2
       - contourpy==1.1.1
       - cycler==0.12.1
@@ -113,11 +115,14 @@ dependencies:
       - einops==0.7.0
       - filelock==3.13.4
       - fonttools==4.51.0
+      - fsspec==2024.3.1
       - gdown==5.1.0
       - google-auth==2.29.0
       - google-auth-oauthlib==0.4.6
       - grpcio==1.62.1
       - hjson==3.1.0
+      - huggingface-hub==0.22.2
+      - hydra-slayer==0.5.0
       - imageio==2.34.0
       - imageio-ffmpeg==0.4.9
       - importlib-metadata==7.1.0
@@ -146,15 +151,18 @@ dependencies:
       - pysocks==1.7.1
       - python-dateutil==2.9.0.post0
       - pytz==2024.1
+      - pyyaml==6.0.1
       - requests-oauthlib==2.0.0
       - rsa==4.9
+      - safetensors==0.4.3
       - scikit-learn==1.3.2
       - scipy==1.10.1
+      - seaborn==0.13.2
       - soupsieve==2.5
       - tensorboard==2.9.0
       - tensorboard-data-server==0.6.1
       - tensorboard-plugin-wit==1.8.1
-      - tensorboardx==1.8
+      - tensorboardx==2.6.2.2
       - threadpoolctl==3.4.0
       - timm==0.4.12
       - tqdm==4.66.2

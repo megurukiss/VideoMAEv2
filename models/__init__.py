@@ -13,6 +13,8 @@ from .modeling_pretrain import (
     pretrain_videomae_small_patch16_224,
 )
 
+from .focal_loss import Focal_Loss
+
 __all__ = [
     'pretrain_videomae_small_patch16_224',
     'pretrain_videomae_base_patch16_224',
@@ -24,4 +26,5 @@ __all__ = [
     'vit_large_patch16_224',
     'vit_huge_patch16_224',
     'vit_giant_patch14_224',
+    'Focal_Loss',
 ]

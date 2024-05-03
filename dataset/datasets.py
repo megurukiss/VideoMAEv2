@@ -128,11 +128,11 @@ class VideoClsDataset(Dataset):
                     label_list.append(label)
                     index_list.append(index)
                 # save sample data as pickle
-                if index == 0:
-                    with open('./samples/sample_data.pkl', 'wb') as f:
-                        dataset=[frame_list, label_list, index_list, {}]
-                        pickle.dump(dataset, f)
-                        # sys.exit()
+                # if index == 0:
+                #     with open('./samples/sample_data.pkl', 'wb') as f:
+                #         dataset=[frame_list, label_list, index_list, {}]
+                #         pickle.dump(dataset, f)
+                #         # sys.exit()
                 return frame_list, label_list, index_list, {}
             else:
                 buffer = self._aug_frame(buffer, args)

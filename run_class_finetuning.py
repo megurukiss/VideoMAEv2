@@ -16,6 +16,7 @@ import time
 from collections import OrderedDict
 from functools import partial
 from pathlib import Path
+from models import Focal_Loss
 
 import deepspeed
 import numpy as np
@@ -859,12 +860,14 @@ def main(args, ds_init):
     #     criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
     # else:
     #     criterion = torch.nn.CrossEntropyLoss()
-    criterion=torch.nn.BCEWithLogitsLoss()
+    criterion1=torch.nn.BCEWithLogitsLoss()
+    criterion2=Focal_Loss()
 
-    print("criterion = %s" % str(criterion))
+    print("criterion1 = %s" % str(criterion1))
+    print("criterion2 = %s" % str(criterion2))
 
     
-    # to be check
+    # auto load 
     # utils.auto_load_model(
     #     args=args,
     #     model=model,
@@ -910,7 +913,7 @@ def main(args, ds_init):
                                 args.update_freq)
         train_stats = train_one_epoch(
             model,
-            criterion,
+            criterion1,
             data_loader_train,
             optimizer,
             device,

@@ -152,10 +152,12 @@ def multi_label_confusion_matrix(ground_truth_labels,pred_labels):
         tp=torch.min(gt,pred)
         # for each TP, increment the corresponding cell in the confusion matrix
         for j in range(length):
-            if tp[j]==1:
+            while tp[j]!=0:
                 confusion_matrix[j,j]+=1
+                tp[j]-=1
         
         # calculate FN
+        tp=torch.min(gt,pred)
         gt=gt-tp
         pred=pred-tp
         # get non zero indexes
