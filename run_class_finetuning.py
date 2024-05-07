@@ -16,7 +16,7 @@ import time
 from collections import OrderedDict
 from functools import partial
 from pathlib import Path
-from models import Focal_Loss
+from models import Focal_Loss, FocalLossV2
 
 import deepspeed
 import numpy as np
@@ -861,7 +861,7 @@ def main(args, ds_init):
     # else:
     #     criterion = torch.nn.CrossEntropyLoss()
     criterion1=torch.nn.BCEWithLogitsLoss()
-    criterion2=Focal_Loss()
+    criterion2=FocalLossV2()
 
     print("criterion1 = %s" % str(criterion1))
     print("criterion2 = %s" % str(criterion2))

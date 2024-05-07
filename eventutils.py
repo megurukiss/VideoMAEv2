@@ -26,7 +26,7 @@ def ground_truth_decoder(labels,num_classes=len(label_map)):
             decoded[i, label_map[part]] += 1
     return decoded/(len(parts))
 
-def custom_multi_label_pred(outputs,threshold=0.5):
+def custom_multi_label_pred(outputs,threshold=0.7):
     """
     Generate predictions based on custom rules:
     - If the highest probability is greater than 0.7, only the highest is selected.
@@ -57,7 +57,7 @@ def custom_multi_label_pred(outputs,threshold=0.5):
             
     return preds
 
-def multi_label_accuracy(outputs, targets, threshold=0.5):
+def multi_label_accuracy(outputs, targets, threshold=0.7):
     """
     Calculate accuracy for multi-label classification.
     Args:
@@ -87,7 +87,7 @@ def multi_label_accuracy(outputs, targets, threshold=0.5):
     overall_acc=count_correct/count_total
     return overall_acc
 
-def multi_label_seperate_accuracy(outputs,targets,threshold=0.5):
+def multi_label_seperate_accuracy(outputs,targets,threshold=0.7):
     """
     Calculate accuracy for multi-label classification.
     Args:

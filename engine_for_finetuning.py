@@ -19,7 +19,7 @@ from timm.data import Mixup
 from timm.utils import ModelEma, accuracy
 import datetime
 import pickle
-from models import Focal_Loss
+from models import Focal_Loss, FocalLossV2
 
 import utils
 from eventutils import ground_truth_decoder,multi_label_accuracy,custom_multi_label_pred,multi_label_seperate_accuracy,multi_label_confusion_matrix
@@ -100,7 +100,7 @@ def train_one_epoch(model: torch.nn.Module,
         #     samples = samples.view(B, C, T, H, W)
         
         criterion1= torch.nn.BCEWithLogitsLoss()
-        criterion2=Focal_Loss()
+        criterion2=FocalLossV2()
         criterions=[criterion1,criterion2]
         
         if loss_scaler is None:
@@ -196,7 +196,7 @@ def train_one_epoch(model: torch.nn.Module,
 @torch.no_grad()
 def validation_one_epoch(data_loader, model, device):
     criterion1 = torch.nn.BCEWithLogitsLoss()
-    criterion2 = Focal_Loss()
+    criterion2 = FocalLossV2()
 
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Val:'
@@ -279,7 +279,7 @@ def validation_one_epoch(data_loader, model, device):
 @torch.no_grad()
 def final_test(data_loader, model, device, file):
     criterion1 = torch.nn.BCEWithLogitsLoss()
-    criterion2=Focal_Loss()
+    criterion2=FocalLossV2()
 
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Test:'
