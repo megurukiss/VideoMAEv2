@@ -20,16 +20,18 @@ from timm.utils import ModelEma, accuracy
 import datetime
 import pickle
 from models import Focal_Loss, FocalLossV2
+from pytorch_loss import FocalLossV3
 
 import utils
 from eventutils import ground_truth_decoder,multi_label_accuracy,custom_multi_label_pred,multi_label_seperate_accuracy,multi_label_confusion_matrix
 
-def train_class_batch(model, samples, target, criterions):
+def train_class_batch(model, samples, target, criterion):
     outputs = model(samples)
     # target = ground_truth_decoder(target)
-    loss=0
-    for criterion in criterions:
-        loss+=criterion(outputs,target)
+    # loss=torch.tensor(0.0)
+    # for criterion in criterions:
+    #     loss+=criterion(outputs,target)
+    loss=criterion(outputs,target)
     return loss, outputs
 
 
@@ -99,18 +101,16 @@ def train_one_epoch(model: torch.nn.Module,
         #     samples, targets = mixup_fn(samples, targets)
         #     samples = samples.view(B, C, T, H, W)
         
-        criterion1= torch.nn.BCEWithLogitsLoss()
-        criterion2=FocalLossV2()
-        criterions=[criterion1,criterion2]
+        # criterion= torch.nn.BCEWithLogitsLoss()
         
         if loss_scaler is None:
             samples = samples.half()
             loss, output = train_class_batch(model, samples, targets,
-                                             criterions)
+                                             criterion)
         else:
             with torch.cuda.amp.autocast(dtype=torch.bfloat16):
                 loss, output = train_class_batch(model, samples, targets,
-                                                 criterions)
+                                                 criterion)
 
         loss_value = loss.item()
 
@@ -195,8 +195,8 @@ def train_one_epoch(model: torch.nn.Module,
 
 @torch.no_grad()
 def validation_one_epoch(data_loader, model, device):
-    criterion1 = torch.nn.BCEWithLogitsLoss()
-    criterion2 = FocalLossV2()
+    # criterion2 = torch.nn.BCEWithLogitsLoss()
+    criterion2 = FocalLossV3()
 
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Val:'
@@ -221,9 +221,8 @@ def validation_one_epoch(data_loader, model, device):
         # compute output
         with torch.cuda.amp.autocast():
             output = model(images)
-            loss1 = criterion1(output, target)
-            loss2=criterion2(output,target)
-            loss=loss1+loss2
+            # loss1 = criterion1(output, target)
+            loss=criterion2(output,target)
 
         class_acc,class_wise_acc = multi_label_seperate_accuracy(output, target)
         
@@ -278,8 +277,8 @@ def validation_one_epoch(data_loader, model, device):
 
 @torch.no_grad()
 def final_test(data_loader, model, device, file):
-    criterion1 = torch.nn.BCEWithLogitsLoss()
-    criterion2=FocalLossV2()
+    # criterion1 = torch.nn.BCEWithLogitsLoss()
+    criterion2=FocalLossV3()
 
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Test:'
@@ -304,9 +303,8 @@ def final_test(data_loader, model, device, file):
         # compute output
         with torch.cuda.amp.autocast():
             output = model(images)
-            loss1 = criterion1(output, target)
-            loss2=criterion2(output,target)
-            loss=loss1+loss2
+            # loss1 = criterion1(output, target)
+            loss=criterion2(output,target)
 
         for i in range(output.size(0)):
             string = "{} {} {} {} {}\n".format(
@@ -404,176 +402,3 @@ def compute_video(lst):
     # top5 = (int(label) in np.argsort(-feat)[:5]) * 1.0
     return [pred, top1, int(label)]
 
-
-# def train(rank, world_size,dataset,model,args):
-#     setup(rank, world_size)
-#     model =model.to(rank)
-#     model = DDP(model, device_ids=[rank])
-    
-
-#     sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank)
-    
-#     if global_rank == 0 and args.log_dir is not None:
-#         os.makedirs(args.log_dir, exist_ok=True)
-#         log_writer = utils.TensorboardLogger(log_dir=args.log_dir)
-#     else:
-#         log_writer = None
-#     if args.num_sample > 1:
-#         collate_func = partial(multiple_samples_collate, fold=False)
-#     else:
-#         collate_func = None
-        
-#     data_loader_train=torch.utils.data.DataLoader(
-#         dataset,
-#         sampler=sampler_train,
-#         batch_size=args.batch_size,
-#         num_workers=args.num_workers,
-#         pin_memory=args.pin_mem,
-#         drop_last=True,
-#         collate_fn=collate_func,
-#         persistent_workers=True,
-#         sampler=sampler)
-    
-    
-#     optimizer = create_optimizer(
-#             args,
-#             model_without_ddp,
-#             skip_list=skip_weight_decay_list,
-#             get_num_layer=assigner.get_layer_id
-#             if assigner is not None else None,
-#             get_layer_scale=assigner.get_scale
-#             if assigner is not None else None)
-#     loss_scaler = NativeScaler()
-    
-#     print("Use step level LR scheduler!")
-#     lr_schedule_values = utils.cosine_scheduler(
-#         args.lr,
-#         args.min_lr,
-#         args.epochs,
-#         num_training_steps_per_epoch,
-#         warmup_epochs=args.warmup_epochs,
-#         warmup_steps=args.warmup_steps,
-#     )
-#     if args.weight_decay_end is None:
-#         args.weight_decay_end = args.weight_decay
-#     wd_schedule_values = utils.cosine_scheduler(args.weight_decay,
-#                                                 args.weight_decay_end,
-#                                                 args.epochs,
-#                                                 num_training_steps_per_epoch)
-#     print("Max WD = %.7f, Min WD = %.7f" %
-#           (max(wd_schedule_values), min(wd_schedule_values)))
-    
-#     criterion=torch.nn.BCEWithLogitsLoss()
-
-#     print("criterion = %s" % str(criterion))
-
-    
-#     print(f"Start training for {args.epochs} epochs")
-#     start_time = time.time()
-#     max_accuracy = 0.0
-#     for epoch in range(args.start_epoch, args.epochs):
-#         if args.distributed:
-#             data_loader_train.sampler.set_epoch(epoch)
-#         if log_writer is not None:
-#             log_writer.set_step(epoch * num_training_steps_per_epoch *
-#                                 args.update_freq)
-#         train_stats = train_one_epoch(
-#             model,
-#             criterion,
-#             data_loader_train,
-#             optimizer,
-#             device,
-#             epoch,
-#             loss_scaler,
-#             args.clip_grad,
-#             model_ema,
-#             log_writer=log_writer,
-#             start_steps=epoch * num_training_steps_per_epoch,
-#             lr_schedule_values=lr_schedule_values,
-#             wd_schedule_values=wd_schedule_values,
-#             num_training_steps_per_epoch=num_training_steps_per_epoch,
-#             update_freq=args.update_freq,
-#         )
-#         if args.output_dir and args.save_ckpt:
-#             _epoch = epoch + 1
-#             if _epoch % args.save_ckpt_freq == 0 or _epoch == args.epochs:
-#                 utils.save_model(
-#                     args=args,
-#                     model=model,
-#                     model_without_ddp=model_without_ddp,
-#                     optimizer=optimizer,
-#                     loss_scaler=loss_scaler,
-#                     epoch=epoch,
-#                     model_ema=model_ema)
-#         if data_loader_val is not None:
-#             test_stats = validation_one_epoch(data_loader_val, model, device)
-#             print(
-#                 f"Accuracy of the network on the {len(dataset_val)} val images: {test_stats['acc1']:.2f}%"
-#             )
-#             if max_accuracy < test_stats["acc1"]:
-#                 max_accuracy = test_stats["acc1"]
-#                 if args.output_dir and args.save_ckpt:
-#                     utils.save_model(
-#                         args=args,
-#                         model=model,
-#                         model_without_ddp=model_without_ddp,
-#                         optimizer=optimizer,
-#                         loss_scaler=loss_scaler,
-#                         epoch="best",
-#                         model_ema=model_ema)
-
-#             print(f'Max accuracy: {max_accuracy:.2f}%')
-#             if log_writer is not None:
-#                 log_writer.update(
-#                     val_acc1=test_stats['acc1'], head="perf", step=epoch)
-#                 # log_writer.update(
-#                 #     val_acc5=test_stats['acc5'], head="perf", step=epoch)
-#                 log_writer.update(
-#                     val_loss=test_stats['loss'], head="perf", step=epoch)
-
-#             log_stats = {
-#                 **{f'train_{k}': v
-#                    for k, v in train_stats.items()},
-#                 **{f'val_{k}': v
-#                    for k, v in test_stats.items()}, 'epoch': epoch,
-#                 'n_parameters': n_parameters
-#             }
-#         else:
-#             log_stats = {
-#                 **{f'train_{k}': v
-#                    for k, v in train_stats.items()}, 'epoch': epoch,
-#                 'n_parameters': n_parameters
-#             }
-#         if args.output_dir and utils.is_main_process():
-#             if log_writer is not None:
-#                 log_writer.flush()
-#             with open(
-#                     os.path.join(args.output_dir, "log.txt"),
-#                     mode="a",
-#                     encoding="utf-8") as f:
-#                 f.write(json.dumps(log_stats) + "\n")
-                
-#     preds_file = os.path.join(args.output_dir, str(global_rank) + '.txt')
-#     test_stats = final_test(data_loader_test, model, device, preds_file)
-#     torch.distributed.barrier()
-
-#     if global_rank == 0:
-#         print("Start merging results...")
-#         final_top1= merge(args.output_dir, num_tasks)
-#         print(
-#             f"Accuracy of the network on the {len(dataset_test)} test videos: Top-1: {final_top1:.2f}%"
-#         )
-#         log_stats = {'Final top-1': final_top1}
-#         if args.output_dir and utils.is_main_process():
-#             with open(
-#                     os.path.join(args.output_dir, "log.txt"),
-#                     mode="a",
-#                     encoding="utf-8") as f:
-#                 f.write(json.dumps(log_stats) + "\n")
-
-#     total_time = time.time() - start_time
-#     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-#     print('Training time {}'.format(total_time_str))
-                
-#     cleanup()
-    

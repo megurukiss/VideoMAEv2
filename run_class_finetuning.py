@@ -17,6 +17,7 @@ from collections import OrderedDict
 from functools import partial
 from pathlib import Path
 from models import Focal_Loss, FocalLossV2
+from pytorch_loss import FocalLossV3
 
 import deepspeed
 import numpy as np
@@ -860,11 +861,10 @@ def main(args, ds_init):
     #     criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
     # else:
     #     criterion = torch.nn.CrossEntropyLoss()
-    criterion1=torch.nn.BCEWithLogitsLoss()
-    criterion2=FocalLossV2()
+    # criterion=torch.nn.BCEWithLogitsLoss()
+    criterion=FocalLossV3()
 
-    print("criterion1 = %s" % str(criterion1))
-    print("criterion2 = %s" % str(criterion2))
+    print("criterion = %s" % str(criterion))
 
     
     # auto load 
@@ -913,7 +913,7 @@ def main(args, ds_init):
                                 args.update_freq)
         train_stats = train_one_epoch(
             model,
-            criterion1,
+            criterion,
             data_loader_train,
             optimizer,
             device,
