@@ -261,9 +261,10 @@ def validation_one_epoch(data_loader, model, device):
     plt.close()
     
     # save sigmoid values to ./outputs/{timestamp}.pickle
-    pred_sigmoids=torch.cat(pred_sigmoids)
+    data={'ground_truth':ground_truth_labels,'pred':pred_labels,'sigmoid':torch.cat(pred_sigmoids)}
+    # pred_sigmoids=torch.cat(pred_sigmoids)
     save_path=f'./outputs/{time_stamp}.pt'
-    torch.save(pred_sigmoids,save_path)
+    torch.save(data,save_path)
     
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
