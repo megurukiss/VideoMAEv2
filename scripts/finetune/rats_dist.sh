@@ -14,7 +14,7 @@ OMP_NUM_THREADS=1 python -m torch.distributed.launch --nproc_per_node=4 \
         --output_dir ${OUTPUT_DIR} \
         --batch_size 2 \
         --input_size 224 \
-        --nb_classes 7 \
+        --nb_classes 4 \
         --data_set rats \
         --num_sample 2 \
         --short_side_size 224 \

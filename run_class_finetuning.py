@@ -26,6 +26,7 @@ from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 from timm.models import create_model
 from timm.utils import ModelEma
 import torch.nn as nn
+from pytorch_loss import FocalLossV3
 
 # NOTE: Do not comment `import models`, it is used to register models
 import models  # noqa: F401
@@ -64,14 +65,10 @@ def check_model_weights(model, state_dict):
         else:
             print(f'No change in weight for {name}')
 
-# add weights to train data loader
-data_distribution={'interaction_with_partner': 8036,
-            'running': 18632,
-            'restrainer_interaction': 14198,
-            'unsupported_rearing': 1562,
-            'idle_actions': 606,
-            'climbing_on_side': 1258,
-            'immobility': 304}
+data_distribution={'interaction_with_partner': 3798,
+             'others': 10740,
+             'restrainer_interaction': 6959,
+             'unsupported_rearing': 605}
 
 def cal_weight(labels):
     label=labels.split('&')
@@ -859,7 +856,7 @@ def main(args, ds_init):
     #     criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
     # else:
     #     criterion = torch.nn.CrossEntropyLoss()
-    criterion=torch.nn.BCEWithLogitsLoss()
+    criterion=FocalLossV3()
 
     print("criterion = %s" % str(criterion))
 

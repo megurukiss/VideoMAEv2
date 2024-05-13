@@ -3,11 +3,15 @@ from torchvision import transforms
 import numpy as np
 import torch
 
-label_map={'restrainer_interaction': 0, 'unsupported_rearing': 1,
-           'running': 2, 'immobility': 3, 'idle_actions': 4, 
-           'interaction_with_partner': 5, 'climbing_on_side': 6}
+# label_map={'restrainer_interaction': 0, 'unsupported_rearing': 1,
+#            'running': 2, 'immobility': 3, 'idle_actions': 4, 
+#            'interaction_with_partner': 5, 'climbing_on_side': 6}
 
-def ground_truth_decoder(labels,num_classes=len(label_map)):
+label_map={'restrainer_interaction': 0, 'unsupported_rearing': 1,
+              'interaction_with_partner':2, 'others':3}
+
+
+def ground_truth_decoder(labels,num_classes=4):
     """
         Decode the ground truth labels into a tensor.
         Args:
@@ -26,7 +30,7 @@ def ground_truth_decoder(labels,num_classes=len(label_map)):
             decoded[i, label_map[part]] += 1
     return decoded/(len(parts))
 
-def custom_multi_label_pred(outputs,threshold=0.5):
+def custom_multi_label_pred(outputs,threshold=0.6):
     """
     Generate predictions based on custom rules:
     - If the highest probability is greater than 0.7, only the highest is selected.
@@ -45,7 +49,7 @@ def custom_multi_label_pred(outputs,threshold=0.5):
         top_values, top_indices = torch.topk(sigmoids[i], 2) # Get the indices of the top 2 probabilities
         
          # if the largest label is interaction_with_partner, then both labels are interaction_with_partners
-        if top_indices[0]==5:
+        if top_indices[0]==2:
             preds[i, top_indices[0]] = 1.0
             continue
         
@@ -57,7 +61,7 @@ def custom_multi_label_pred(outputs,threshold=0.5):
             
     return preds
 
-def multi_label_accuracy(outputs, targets, threshold=0.5):
+def multi_label_accuracy(outputs, targets, threshold=0.6):
     """
     Calculate accuracy for multi-label classification.
     Args:
@@ -87,7 +91,7 @@ def multi_label_accuracy(outputs, targets, threshold=0.5):
     overall_acc=count_correct/count_total
     return overall_acc
 
-def multi_label_seperate_accuracy(outputs,targets,threshold=0.5):
+def multi_label_seperate_accuracy(outputs,targets,threshold=0.6):
     """
     Calculate accuracy for multi-label classification.
     Args:
@@ -152,10 +156,12 @@ def multi_label_confusion_matrix(ground_truth_labels,pred_labels):
         tp=torch.min(gt,pred)
         # for each TP, increment the corresponding cell in the confusion matrix
         for j in range(length):
-            if tp[j]==1:
+            while tp[j]!=0:
                 confusion_matrix[j,j]+=1
+                tp[j]-=1
         
         # calculate FN
+        tp=torch.min(gt,pred)
         gt=gt-tp
         pred=pred-tp
         # get non zero indexes

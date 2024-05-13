@@ -275,7 +275,7 @@ def build_dataset(is_train, test_mode, args):
             new_height=256,
             new_width=320,
             args=args)
-        nb_classes = 7
+        nb_classes = 4
     else:
         raise NotImplementedError('Unsupported Dataset')
 
