@@ -65,10 +65,10 @@ def check_model_weights(model, state_dict):
         else:
             print(f'No change in weight for {name}')
 
-data_distribution={'interaction_with_partner': 3798,
-             'others': 10740,
-             'restrainer_interaction': 6959,
-             'unsupported_rearing': 605}
+data_distribution={'restrainer_interaction': 6448,
+             'others': 9819,
+             'interaction_with_partner': 3272,
+             'unsupported_rearing': 573}
 
 def cal_weight(labels):
     label=labels.split('&')
@@ -856,8 +856,12 @@ def main(args, ds_init):
     #     criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
     # else:
     #     criterion = torch.nn.CrossEntropyLoss()
-    criterion=FocalLossV3()
-
+    # criterion=FocalLossV3()
+    distribution={'restrainer_interaction':50,'unsupported_rearing':20,'interaction_with_partner':100,'others':100}
+    weights=torch.tensor([1/distribution['restrainer_interaction'],1/distribution['unsupported_rearing'],
+                               1/distribution['interaction_with_partner'],1/distribution['others']])
+    normalized_weights = weights / weights.sum()
+    criterion=torch.nn.BCEWithLogitsLoss(pos_weight=normalized_weights).to(device)
     print("criterion = %s" % str(criterion))
 
     

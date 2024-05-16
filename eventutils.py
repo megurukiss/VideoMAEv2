@@ -20,15 +20,15 @@ def ground_truth_decoder(labels,num_classes=4):
         
         Returns:
         - decoded (torch.Tensor): tensor of shape (len(labels), num_classes) with 1s in the corresponding positions.
-        examples: [[0.5,0.5,0,0,0,0,0],[0,0,0,0,0,0,1]]
+        examples: [[1,1,0,0,0,0,0],[0,0,0,0,0,0,1]]
     """
     
     decoded = torch.zeros((len(labels), num_classes))
     for i, label in enumerate(labels):
         parts = label.split('&')
         for part in parts:
-            decoded[i, label_map[part]] += 1
-    return decoded/(len(parts))
+            decoded[i, label_map[part]] = 1
+    return decoded
 
 def custom_multi_label_pred(outputs,threshold=0.7):
     """
@@ -56,10 +56,20 @@ def custom_multi_label_pred(outputs,threshold=0.7):
         if top_values[0] > threshold:
             preds[i, top_indices[0]] = 1.0
         else:
-            preds[i, top_indices[0]] = 0.5
-            preds[i, top_indices[1]] = 0.5
+            preds[i, top_indices[0]] = 1.0
+            preds[i, top_indices[1]] = 1.0
             
     return preds
+
+def double_one(tensor):
+    # for single label case, double the label
+    # get rows with only one 1
+    rows_with_one_1=tensor.sum(dim=1)==1
+    # get indexes of rows with only one 1
+    indexes=torch.nonzero(rows_with_one_1).squeeze()
+    # double the 1
+    tensor[indexes]=tensor[indexes]*2
+    
 
 def multi_label_accuracy(outputs, targets, threshold=0.7):
     """
@@ -86,6 +96,14 @@ def multi_label_accuracy(outputs, targets, threshold=0.7):
     
     # # count correct values
     # count_correct = vals.sum()
+    
+    # copy preds and targets
+    preds=preds.clone()
+    targets=targets.clone()
+    
+    double_one(preds)
+    double_one(targets)
+    
     count_correct=torch.sum(torch.min(preds, targets))
     count_total = targets.sum()
     overall_acc=count_correct/count_total
@@ -105,22 +123,16 @@ def multi_label_seperate_accuracy(outputs,targets,threshold=0.7):
     """
     
     preds=custom_multi_label_pred(outputs,threshold)
+    preds=preds.clone()
+    targets=targets.clone()
     
-    # preds_non_empty=(preds!=0)
-    # targets_non_empty=(targets!=0)
-    # # get indexes where both are non empty
-    # non_empty=preds_non_empty*targets_non_empty
-    
-    # # correct = (preds == targets).float()
-    
-    # # for non empty indexes, get the minimum value
-    # vals=torch.stack([preds[non_empty], targets[non_empty]]).min(dim=0).values
-    # count_correct = vals.sum()
+    double_one(preds)
+    double_one(targets)
+
     count_correct=torch.sum(torch.min(preds, targets))
     count_total = targets.sum()
     overall_acc=count_correct/count_total
-    # acc_per_label = correct.sum(dim=0) / targets.sum(dim=0)
-    # # if there are no samples for a label, set accuracy to 0
+    
     return overall_acc,torch.softmax(outputs, dim=1)
 
 
@@ -132,10 +144,16 @@ def multi_label_confusion_matrix(ground_truth_labels,pred_labels):
     - pred_labels (torch.Tensor): predicted binary labels. same shape as ground_truth_labels.
     """
     
+    ground_truth_labels=ground_truth_labels.clone()
+    pred_labels=pred_labels.clone()
+    
+    double_one(ground_truth_labels)
+    double_one(pred_labels)
+    
     # double ground truth labels and pred_labels, convert to int
-    ground_truth_labels=ground_truth_labels*2
+    # ground_truth_labels=ground_truth_labels*2
     ground_truth_labels=ground_truth_labels.int()
-    pred_labels=pred_labels*2
+    # pred_labels=pred_labels*2
     pred_labels=pred_labels.int()
     
     

@@ -243,7 +243,7 @@ def validation_one_epoch(data_loader, model, device):
             top1=metric_logger.acc1,
             losses=metric_logger.loss))
     #print label accuracy and class accuracy
-    print("Label accuracy: ",class_wise_acc)
+    # print("Label accuracy: ",class_wise_acc)
     print("Overall accuracy: ",metric_logger.meters['acc1'])
 
     # generate confusion matrix
