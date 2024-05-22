@@ -65,10 +65,9 @@ def check_model_weights(model, state_dict):
         else:
             print(f'No change in weight for {name}')
 
-data_distribution={'restrainer_interaction': 6448,
-             'others': 9819,
-             'interaction_with_partner': 3272,
-             'unsupported_rearing': 573}
+data_distribution={'others': 10392,
+ 'restrainer_interaction': 6248,
+ 'interaction_with_partner': 3072}
 
 def cal_weight(labels):
     label=labels.split('&')
@@ -450,6 +449,8 @@ def get_args():
 
     parser.add_argument(
         '--enable_deepspeed', action='store_true', default=False)
+    
+    parser.add_argument('--confusion_folder', default='', type=str)
 
     known_args, _ = parser.parse_known_args()
 
@@ -463,6 +464,11 @@ def get_args():
 
 
 def main(args, ds_init):
+    
+    confusion_path='/tsukimi/datasets/Chiba/baseline/confusion'
+    confusion_path=os.path.join(confusion_path,args.confusion_folder)
+    if not os.path.exists(confusion_path):
+        os.makedirs(confusion_path, exist_ok=True)
 
     utils.init_distributed_mode(args)
 
@@ -857,9 +863,8 @@ def main(args, ds_init):
     # else:
     #     criterion = torch.nn.CrossEntropyLoss()
     # criterion=FocalLossV3()
-    distribution={'restrainer_interaction':50,'unsupported_rearing':20,'interaction_with_partner':100,'others':100}
-    weights=torch.tensor([1/distribution['restrainer_interaction'],1/distribution['unsupported_rearing'],
-                               1/distribution['interaction_with_partner'],1/distribution['others']])
+    distribution={'restrainer_interaction':150,'interaction_with_partner':130,'others':130}
+    weights=torch.tensor([1/distribution['interaction_with_partner'],1/distribution['restrainer_interaction'],1/distribution['others']])
     normalized_weights = weights / weights.sum()
     criterion=torch.nn.BCEWithLogitsLoss(pos_weight=normalized_weights).to(device)
     print("criterion = %s" % str(criterion))
@@ -938,7 +943,7 @@ def main(args, ds_init):
                     epoch=epoch,
                     model_ema=model_ema)
         if data_loader_val is not None:
-            test_stats = validation_one_epoch(data_loader_val, model, device)
+            test_stats = validation_one_epoch(data_loader_val, model, device,confusion_path)
             print(
                 f"Accuracy of the network on the {len(dataset_val)} val images: {test_stats['acc1']:.2f}%"
             )

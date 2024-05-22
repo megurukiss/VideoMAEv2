@@ -7,11 +7,10 @@ import torch
 #            'running': 2, 'immobility': 3, 'idle_actions': 4, 
 #            'interaction_with_partner': 5, 'climbing_on_side': 6}
 
-label_map={'restrainer_interaction': 0, 'unsupported_rearing': 1,
-              'interaction_with_partner':2, 'others':3}
+label_map={'interaction_with_partner':0, 'restrainer_interaction': 1, 'others':2}
 
 
-def ground_truth_decoder(labels,num_classes=4):
+def ground_truth_decoder(labels,num_classes=3):
     """
         Decode the ground truth labels into a tensor.
         Args:
@@ -49,7 +48,7 @@ def custom_multi_label_pred(outputs,threshold=0.7):
         top_values, top_indices = torch.topk(sigmoids[i], 2) # Get the indices of the top 2 probabilities
         
          # if the largest label is interaction_with_partner, then both labels are interaction_with_partners
-        if top_indices[0]==2:
+        if top_indices[0]==0:
             preds[i, top_indices[0]] = 1.0
             continue
         

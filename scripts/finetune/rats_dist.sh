@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-DATA_PATH='/tsukimi/datasets/Chiba/baseline/datalist2/'
+DATA_PATH='/tsukimi/datasets/Chiba/baseline/datalist_3/'
 OUTPUT_DIR='/tsukimi/datasets/Chiba/baseline/checkpoints'
 MODEL_PATH='/tsukimi/datasets/Chiba/baseline/checkpoints/pretrained_weights/vit_b_k710_dl_from_giant.pth'
 # MODEL_PATH='/tsukimi/datasets/Chiba/baseline/checkpoints/checkpoint-39/mp_rank_00_model_states.pt'
@@ -30,7 +30,8 @@ OMP_NUM_THREADS=1 python -m torch.distributed.launch --nproc_per_node=4 \
         --test_num_segment 5 \
         --test_num_crop 3 \
         --epochs 90 \
-        --drop 0.1 \
+        --confusion_folder adjust_criterion_weights_2 \
+        # --drop 0.1 \
         # --head_drop_rate 0.1
         # --dist_eval \
 

@@ -189,7 +189,7 @@ def train_one_epoch(model: torch.nn.Module,
 
 
 @torch.no_grad()
-def validation_one_epoch(data_loader, model, device):
+def validation_one_epoch(data_loader, model, device,confusion_path):
     criterion = FocalLossV3()
 
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -257,7 +257,9 @@ def validation_one_epoch(data_loader, model, device):
     plt.ylabel('True Label')
     plt.xlabel('Predicted Label')
     time_stamp=str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-    plt.savefig(f'./confusion_matrix/{time_stamp}.jpg')
+    
+    save_path=os.path.join(confusion_path,f'{time_stamp}.jpg')
+    plt.savefig(save_path)
     plt.close()
     
     # save sigmoid values to ./outputs/{timestamp}.pickle
