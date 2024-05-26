@@ -863,10 +863,11 @@ def main(args, ds_init):
     # else:
     #     criterion = torch.nn.CrossEntropyLoss()
     # criterion=FocalLossV3()
-    distribution={'restrainer_interaction':150,'interaction_with_partner':130,'others':130}
+    distribution={'restrainer_interaction':150,'interaction_with_partner':130,'others':170}
     weights=torch.tensor([1/distribution['interaction_with_partner'],1/distribution['restrainer_interaction'],1/distribution['others']])
     normalized_weights = weights / weights.sum()
-    criterion=torch.nn.BCEWithLogitsLoss(pos_weight=normalized_weights).to(device)
+    # criterion=torch.nn.BCEWithLogitsLoss(pos_weight=normalized_weights).to(device)
+    criterion=FocalLossV3()
     print("criterion = %s" % str(criterion))
 
     

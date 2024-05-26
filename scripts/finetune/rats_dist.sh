@@ -14,7 +14,7 @@ OMP_NUM_THREADS=1 python -m torch.distributed.launch --nproc_per_node=4 \
         --output_dir ${OUTPUT_DIR} \
         --batch_size 2 \
         --input_size 224 \
-        --nb_classes 4 \
+        --nb_classes 3 \
         --data_set rats \
         --num_sample 2 \
         --short_side_size 224 \
@@ -23,15 +23,15 @@ OMP_NUM_THREADS=1 python -m torch.distributed.launch --nproc_per_node=4 \
         --sampling_rate 4 \
         --num_workers 10 \
         --opt adamw \
-        --lr 1e-3 \
+        --lr 1e-4 \
         --opt_betas 0.9 0.999 \
         --weight_decay 0.05 \
         --layer_decay 0.75 \
         --test_num_segment 5 \
         --test_num_crop 3 \
         --epochs 90 \
-        --confusion_folder adjust_criterion_weights_2 \
-        # --drop 0.1 \
+        --confusion_folder focal_loss_lr1e4 \
+        # --drop 0.05 \
         # --head_drop_rate 0.1
         # --dist_eval \
 
